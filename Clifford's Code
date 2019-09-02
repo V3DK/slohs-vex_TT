@@ -1,1 +1,702 @@
-//code for TT
+/*----------------------------------------------------------------------------*/
+/*     Robot:       milo!                                                     */
+/*----------------------------------------------------------------------------*/
+#include "vex.h"
+
+using namespace vex;
+
+// A global instance of vex::brain used for printing to the V5 brain screen
+vex::brain       Brain;
+// A global instance of vex::competition
+vex::competition Competition;
+
+// define your global instances of motors and other devices here
+  //drive
+  vex::motor frontLeft = vex::motor(vex::PORT1, vex::gearSetting::ratio18_1);
+  vex::motor backLeft = vex::motor(vex::PORT11, vex::gearSetting::ratio18_1);
+  vex::motor frontRight = vex::motor(vex::PORT10, vex::gearSetting::ratio18_1, true);
+  vex::motor backRight = vex::motor(vex::PORT20, vex::gearSetting::ratio18_1, true);
+  //other
+  vex::motor leftRoller = vex::motor(vex::PORT14, vex::gearSetting::ratio6_1);
+  vex::motor rightRoller = vex::motor(vex::PORT17, vex::gearSetting::ratio36_1);
+  vex::motor angler = vex::motor(vex::PORT16, vex::gearSetting::ratio18_1);
+  vex::motor lift = vex::motor(vex::PORT15, vex::gearSetting::ratio18_1);
+  //controller
+  vex::controller Controller1 = vex::controller();
+
+
+  // variables
+  int maxSpeed = 100;
+
+    //autonomous variables
+  bool redSide = true;
+  float math_Pi = 3.1415926535897932384626433;
+  bool autoRunning = false;
+
+  //drive bools
+  bool driveLockOn = false;
+
+  //lift vars
+  bool liftTrigger = false;
+  int liftPos = 0;
+
+  //angler
+  bool anglerOut = false;
+
+  //PID
+  bool pidRunning = false;
+  bool turnRunning;
+  float pidReqValue = 0; 
+  float tReq = 0;
+  //PID Speeds
+  int pidSpeed = 0;
+  int tSpeed = 0;
+  //drive constants
+  float  kp = 0.3;
+  //float  ki = 0.0;
+  float  kd = 0.3;
+  //turn constants
+  float tKp = 0.9;
+  float tKd = 3.5;
+  bool pidSlew = false;
+
+
+float leftAvg(){
+    //avg the 2 values
+    return ((frontLeft.rotation(vex::rotationUnits::deg) + 
+            backLeft.rotation(vex::rotationUnits::deg)) / 2);
+}
+
+
+//return the avg value of left encoders
+float rightAvg(){
+    //avg the 2 values
+    return ((frontRight.rotation(vex::rotationUnits::deg) + 
+            backRight.rotation(vex::rotationUnits::deg)) / 2);
+}
+
+void moveRight(int rVel){
+    frontRight.spin(vex::directionType::fwd, rVel, vex::velocityUnits::pct);
+    backRight.spin(vex::directionType::fwd, rVel, vex::velocityUnits::pct);
+}
+
+void moveLeft(int lVel){
+    frontLeft.spin(vex::directionType::fwd, lVel, vex::velocityUnits::pct);
+    backLeft.spin(vex::directionType::fwd, lVel, vex::velocityUnits::pct);
+}
+
+void resetDrive(){
+    moveLeft(0);
+    moveRight(0);
+    frontLeft.resetRotation();
+    backLeft.resetRotation();
+    frontRight.resetRotation();
+    backRight.resetRotation();
+}
+
+void resetOthers(){
+    lift.resetRotation();
+    rightRoller.resetRotation();
+    leftRoller.resetRotation();
+    angler.resetRotation();
+}
+
+//isDriving
+int count = 0;
+float last = 0;
+//everything in absolute value
+bool isDriving(float tar){
+  Brain.Screen.clearScreen();
+
+  int lPos = leftAvg();
+  int rPos = rightAvg();
+
+  //always positive
+  float curr = (abs(lPos) + abs(rPos))/2;
+  int thresh = 3;
+  int target = abs(tar);
+
+  Brain.Screen.printAt(1, 10, "%d", target);
+  Brain.Screen.printAt(1, 30, "%d", count);
+  Brain.Screen.printAt(1, 70, "%0.4f", curr);
+  Brain.Screen.printAt(1, 90, "%0.4f", last);
+  Brain.Screen.printAt(1, 130, "%0.4f", abs(last - curr));
+
+  if((abs(last - curr) < thresh) && ((target * 0.7) < curr))
+    count++;
+  else
+    count = 0;
+
+  last = curr;
+
+  //not driving if we haven't moved
+  if(count > 4){
+    return false;
+    count = 0;
+    last = 0;
+  }
+  else
+    return true;
+}
+
+//slew rate
+int accel_step = 7;
+int deccel_step = 256; // no decel slew
+int lSpeed = 0;
+int rSpeed = 0;
+
+void leftSlew(int leftTarget){
+  int step;
+
+  if(abs(lSpeed) < abs(leftTarget))
+    step = accel_step;
+  else
+    step = deccel_step;
+
+  if(leftTarget > lSpeed + step)
+    lSpeed += step;
+  else if(leftTarget < lSpeed - step)
+    lSpeed -= step;
+  else
+    lSpeed = leftTarget;
+
+  moveLeft(lSpeed);
+}
+
+//slew control
+void rightSlew(int rightTarget){
+  int step;
+
+  if(abs(rSpeed) < abs(rightTarget))
+    step = accel_step;
+  else
+    step = deccel_step;
+
+  if(rightTarget > rSpeed + step)
+    rSpeed += step;
+  else if(rightTarget < rSpeed - step)
+    rSpeed -= step;
+  else
+    rSpeed = rightTarget;
+
+  moveRight(rSpeed);
+}
+
+//stop the pid part from running and reset values passed
+//works for normal and turning PID
+ void stopPid(){
+    pidRunning = false;
+    //turnRunning = false;
+    
+    //redundant safeties
+    pidReqValue = 0;
+    pidSpeed = 0;
+
+    moveLeft(0);
+    moveRight(0);
+    //tReq = 0;
+    //tSpeed = 0;
+ }
+ int tDrive = 0;
+
+ void stopTurn(){
+    turnRunning = false;
+
+    tReq = 0;
+    tSpeed = 0;
+    tDrive = 0;
+
+    moveLeft(0);
+    moveRight(0);
+ }
+
+ void startPid(float pReq, int pSpeed, bool pidS){ //pReq in inches
+    resetDrive();
+    pidReqValue = (pReq / (4 * math_Pi)) * 360;
+    pidSpeed = pSpeed;
+    pidRunning = true;
+    pidSlew = pidS;
+    //wait until pidRunning is false
+    while(pidRunning){
+        vex::task::sleep(20);
+    }
+    //Brain.Screen.printAt(1, 115, "Done!");
+ }
+
+//positive tReq = right turn!
+ void startTurn(float tReqVal, int turSpeed){
+    resetDrive();
+    tReq = (tReqVal / (4 * math_Pi)) * 360;    
+    tSpeed = turSpeed;
+    turnRunning = true;
+    
+    //wait until pidRunning is false
+    while(turnRunning){
+        vex::task::sleep(20);
+    }
+ }
+
+int pidTask(){
+    //normal
+    float  pidCurrValue;
+    int    pidError;
+    float  pidLastError;
+    float  pidDerivative;
+    int    pidDrive;
+
+    //clearEncoders
+    resetDrive();
+
+    pidLastError = 0;
+     while(true){
+
+        if(pidRunning){
+            //Brain.Screen.clearScreen();
+
+            //read sensor value from Avg func
+            pidCurrValue = (rightAvg() + leftAvg()) / 2;
+            pidError = pidReqValue - pidCurrValue;
+
+            pidDerivative = pidError - pidLastError;
+            pidLastError = pidError;
+
+            pidDrive = (kp * pidError) + (kd * pidDerivative);
+            //limit drive - speed based on pidSpeed variable passed in
+            if(pidDrive > pidSpeed)
+                pidDrive = pidSpeed;
+            else if(pidDrive < (-pidSpeed))
+                pidDrive = (-pidSpeed);
+
+            //stoppping state - if drive power super small, (less than 3) and error is equal to last error, robot is stopped
+            if(!isDriving(pidReqValue)){
+               Brain.Screen.printAt(1, 10, "First");
+                stopPid();
+            }    
+            //send to drive motors - values already scaled to speed
+            if(pidSlew){
+              rightSlew(pidDrive);
+              leftSlew(pidDrive);
+            }
+            else if(!pidSlew){
+              moveLeft(pidDrive);
+              moveRight(pidDrive);
+            }   
+        }
+        //pid not running
+        else {
+            // clear all
+            pidError       = 0;
+            pidLastError   = 0;
+            pidDerivative  = 0;
+            pidReqValue    = 0;
+            pidSpeed       = 0;
+        }
+
+            //to not waste resources
+            vex::task::sleep(25);
+        }
+        return 0;
+}
+
+int turnTask(){
+    //turning
+    float  tCurr = 0;
+    int    tError = 0;
+    float  tLastError = 0;
+    float  tDeriv = 0;
+
+    //clearEncoders
+    resetDrive();
+
+     while(true){
+        //turning pid
+        if(turnRunning){
+
+            //guarentees correct sign - right turn is pos, left is neg
+            tCurr = (leftAvg() - rightAvg()) / 2;
+            //tCurr = leftAvg();
+            tError = tReq - tCurr;
+
+            tDeriv = tError - tLastError;
+            tLastError = tError;
+
+            tDrive = (tKp * tError) + (tKd * tDeriv);
+            //limit drive - speed based on pidSpeed variable passed in
+            if(tDrive > tSpeed)
+                tDrive = tSpeed;
+            else if(tDrive < (-tSpeed))
+                tDrive = (-tSpeed);
+
+          /*  Brain.Screen.printAt(1, 10, "%d", tError);
+            Brain.Screen.printAt(1, 30, "%d", tLastError);
+            Brain.Screen.printAt(1, 50, "%d", tDrive);
+            Brain.Screen.printAt(1, 70, "%0.4f", tReq);
+          */
+
+           // Brain.Screen.printAt(1, 10, "First");
+
+            //stoppping state - if drive power super small, (less than 3) and error is equal to last error, robot is stopped
+            if(!isDriving(tReq)){
+              tDrive = 0;
+                stopTurn();
+            }        
+
+           // Brain.Screen.printAt(1, 120, "Third");
+            //send to drive motors
+            moveLeft(tDrive);
+            moveRight(-tDrive);
+
+            //leftSlew(tDrive);
+            //rightSlew(-tDrive);
+        }
+
+        //pid not running
+        else {
+            tError = 0;
+            tLastError = 0;
+            tDeriv = 0;
+            tReq = 0;
+            tSpeed = 0;
+        }
+            //to not waste resources
+            vex::task::sleep(25);
+        }
+        return 0;
+}
+
+void pre_auton( void ) {
+    //reset drive encoders
+    resetOthers();
+    //reset all other encoders
+    resetDrive();
+    Brain.Screen.clearScreen();
+    Brain.Screen.printAt(1, 40, "Ready!");
+}
+
+void driveCoast(){
+      frontLeft.stop(vex::brakeType::coast);
+      backLeft.stop(vex::brakeType::coast);
+      backRight.stop(vex::brakeType::coast);
+      frontRight.stop(vex::brakeType::coast);
+
+    }
+    void driveHold(){
+      frontLeft.stop(vex::brakeType::hold);
+      backLeft.stop(vex::brakeType::hold);
+      backRight.stop(vex::brakeType::hold);
+      frontRight.stop(vex::brakeType::hold);
+    }
+    
+    //function to toggle lock and coast with boolean
+    void driveLock(bool z){
+        // if z is true, lock is turned on
+        // else, it's turned off
+        if(z){
+            driveHold(); 
+        }
+        else if(!z) {
+            driveCoast();
+        }
+    }
+
+    //d in inches
+    //s speed - in pct out of %100
+    void driveMoveFor(float d, int s){
+        resetDrive();
+        driveLock(false);
+        //calculate distance from inches to revolutions
+        float revo = d / (4 * math_Pi);
+        frontLeft.rotateFor(revo, vex::rotationUnits::rev, s, vex::velocityUnits::pct, false);
+        frontRight.rotateFor(revo, vex::rotationUnits::rev, s, vex::velocityUnits::pct, false);
+        backLeft.rotateFor(revo, vex::rotationUnits::rev, s, vex::velocityUnits::pct, false);
+        backRight.rotateFor(revo, vex::rotationUnits::rev, s, vex::velocityUnits::pct, true);
+        //driveLock(true);
+    }
+    
+  //turning without gyro - swing turns
+    //left dist in inches - negative for backwards
+    //right dist in inches
+    //left speed in pct
+    //right speed in pct
+    void driveTurnFor(float leftdist, float rightddist, int leftSpeed, int rightSpeed){
+        resetDrive();
+        driveLock(true);
+        float Lrevo = leftdist / (4 * math_Pi);
+        float Rrevo = rightddist / (4 * math_Pi);
+        frontLeft.rotateFor(Lrevo, vex::rotationUnits::rev, leftSpeed, vex::velocityUnits::pct, false);
+        backLeft.rotateFor(Lrevo, vex::rotationUnits::rev, leftSpeed, vex::velocityUnits::pct, false);
+        frontRight.rotateFor(Rrevo, vex::rotationUnits::rev, rightSpeed, vex::velocityUnits::pct, false);
+        backRight.rotateFor(Rrevo, vex::rotationUnits::rev, rightSpeed, vex::velocityUnits::pct, true);
+        driveLock(true);
+    }
+
+    //timeout drive for time
+    void driveTimeout(float leftTime, float rightTime){
+        frontLeft.setTimeout(leftTime, vex::timeUnits::sec);
+        backLeft.setTimeout(leftTime, vex::timeUnits::sec);
+        frontRight.setTimeout(rightTime, vex::timeUnits::sec);
+        backRight.setTimeout(rightTime, vex::timeUnits::sec);
+    }
+
+/*---------------------------------------------------------------------------*/
+/*                                                                           */
+/*                              Autonomous Task                              */
+/*                                                                           */
+/*  This task is used to control your robot during the autonomous phase of   */
+/*  a VEX Competition.                                                       */
+/*                                                                           */
+/*  You must modify the code to add your own robot specific commands here.   */
+/*---------------------------------------------------------------------------*/
+
+void autonomous( void ) {
+  vex::task pidTasks(pidTask);
+    vex::task turnTasks(turnTask);
+
+    autoRunning = false;
+    //Brain.Screen.printAt(1, 15, "BlueBackFar");              
+
+    //stop pid task - only needed for auto
+    vex::task::stop(pidTask); 
+    vex::task::stop(turnTask); 
+    //wait 10 seconds - just in case (no repeat)
+    vex::task::sleep(10000);
+}
+    
+    
+    void driveLockDetect(){
+        if(Controller1.ButtonLeft.pressing()){
+           //wait until released
+           while(Controller1.ButtonLeft.pressing()){
+               vex::task::sleep(100);
+           }
+           //run func
+            driveLockOn = !driveLockOn;
+           driveLock(driveLockOn);
+       }
+    }
+
+    void autoLift(){
+      //if lift trigger is clicked
+      //low position
+      if(liftTrigger){
+        if(liftPos == 0){
+          anglerOut = false;
+          angler.rotateTo(0,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(0,vex::rotationUnits::deg,50,vex::velocityUnits::pct);
+          lift.setTimeout(600, vex::timeUnits::msec);
+        }
+          //medium position
+        else if(liftPos == 1){
+          anglerOut = true;
+          angler.rotateTo(360,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(-530,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.setTimeout(1000, vex::timeUnits::msec);
+        }
+          //highest position
+        else if(liftPos == 2){
+          anglerOut = true;
+          angler.rotateTo(360,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(-700,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.setTimeout(1000, vex::timeUnits::msec);
+        }
+        
+        liftTrigger = false;
+      }
+    }
+    
+    void liftTriggerDetect(){
+      //toggle between high and medium
+      if(Controller1.ButtonB.pressing()){
+        //wait until released
+        while(Controller1.ButtonB.pressing()){
+          vex::task::sleep(100);
+        }
+          //run func
+          if(liftPos != 2){
+            liftTrigger = true;
+            liftPos = 1 - liftPos;
+          }
+      }  
+      //lowest flag toggle
+      else if(Controller1.ButtonX.pressing()){
+      //wait until released
+        while(Controller1.ButtonX.pressing()){
+          vex::task::sleep(100);
+        }
+        //run func
+        liftTrigger = true;
+        liftPos = 2 - liftPos;
+      }
+
+      //motor holds
+      if(!liftTrigger){
+        if(liftPos == 0)
+          lift.stop(vex::brakeType::coast);
+
+        //medium flag
+        else if(liftPos == 1)
+          lift.stop(vex::brakeType::hold);
+
+        //lowest flag
+        else if(liftPos == 2)
+          lift.stop(vex::brakeType::hold);
+      }
+
+    }
+
+
+void driveTaskFunc(){    
+
+  //drive lock for platform
+    driveLockDetect();
+
+  //toggles
+    autoLift();
+    liftTriggerDetect();
+
+  //normal lift control
+    //liftControl();
+    }
+
+int driveTask(){
+        while(true){
+            driveTaskFunc();
+            //to not waste resources
+            vex::task::sleep(20);
+        }
+        return 0;
+    }
+
+    void controllerDisplay(){
+            Controller1.Screen.clearScreen();
+                    if(!driveLockOn){
+                    Controller1.Screen.setCursor(3, 1);
+                    //Controller1.Screen.print("               Off");
+                    Controller1.Screen.print("Off");
+                    }
+                    else
+                    {
+                        Controller1.Screen.setCursor(3, 1);
+                    Controller1.Screen.print("On");
+                    }      
+        }
+
+    void brainDisplay(){
+      Brain.Screen.clearScreen();
+        //Brain.Screen.printAt(1, 115, "%d", vex::timer::system());
+
+        // Brain.Screen.printAt(1, 120, "%d", test);
+        //Brain.Screen.printAt(1, 15, "%d", Gyro.value(vex::analogUnits::pct));
+        //Brain.Screen.printAt(1, 15, "%d", Gyro.value(vex::analogUnits::range8bit));
+        //Brain.Screen.printAt(1, 50, "%.6f", Gyro.value(vex::analogUnits::range12bit));
+        //Brain.Screen.printAt(1, 35, "%d", Gyro.value(vex::analogUnits::range12bit));
+        //Brain.Screen.printAt(1, 100, "%.6f", (gScale * Gyro2.value(vex::analogUnits::range12bit)));
+
+        //Brain.Screen.printAt(1, 55, "%.6f", driveAvg());
+
+
+        // Brain.Screen.printAt(1, 75, "%.6f", (gScale * Gyro2.value(vex::analogUnits::range12bit)));
+        //Brain.Screen.printAt(1, 135, "%.6f", (avgGyro()));  
+
+        //Brain.Screen.printAt(1, 160, "%.6f", autoSelect.rotation(vex::rotationUnits::deg));
+        //Brain.Screen.printAt(1, 155, "%.6f", (   (Gyro.value(vex::analogUnits::range12bit) + (gScale * Gyro2.value(vex::analogUnits::range12bit)))  / 2  ));
+        //Brain.Screen.printAt(1, 115, "%.6f", FrontLeft.rotation(vex::rotationUnits::deg));
+        //Brain.Screen.printAt(1, 135, "%.6f", BackLeft.rotation(vex::rotationUnits::deg));
+        //Brain.Screen.printAt(1, 155, "%.6f", FrontRight.rotation(vex::rotationUnits::deg));
+        //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));
+
+        //Brain.Screen.printAt(1, 195, "5FlagRed");          
+    }
+
+    //task only used to update brain and controller displays
+    //also used to select auton's
+    int displayTask(){
+      while(true){
+          controllerDisplay();
+          brainDisplay();
+          //to not waste resources - 150 cause display doesn't need to be updated super fast
+          vex::task::sleep(150);
+      }
+      return 0;
+    }
+
+    void driveTrainControl(void){
+      moveLeft(Controller1.Axis3.value());
+      moveRight(Controller1.Axis2.value());
+    }
+
+    void rollerControl(void){
+
+      if(Controller1.ButtonL2.pressing()){
+        leftRoller.spin(vex::directionType::fwd, (maxSpeed * 1), vex::velocityUnits::pct);
+        rightRoller.spin(vex::directionType::rev, (maxSpeed * 1), vex::velocityUnits::pct);
+      }
+      else if(Controller1.ButtonL1.pressing()){
+        leftRoller.spin(vex::directionType::rev, (maxSpeed * 1), vex::velocityUnits::pct);
+        rightRoller.spin(vex::directionType::fwd, (maxSpeed * 1), vex::velocityUnits::pct);
+      }
+      else {
+        leftRoller.stop(vex::brakeType::hold);
+        rightRoller.stop(vex::brakeType::hold);
+        
+      }
+    }
+
+    void anglerControl(){
+      if(!anglerOut){
+        if(Controller1.ButtonR1.pressing()){
+          angler.spin(vex::directionType::fwd, (maxSpeed * 0.5), vex::velocityUnits::pct);
+        }
+        else if(Controller1.ButtonR2.pressing()){
+          angler.spin(vex::directionType::rev, (maxSpeed * 0.5), vex::velocityUnits::pct);
+        }
+        else {
+          angler.stop(vex::brakeType::hold);
+        }
+      }
+      else if(anglerOut){
+        angler.stop(vex::brakeType::hold);
+      }
+    }
+          
+    void allRemoteFunc(void){
+        anglerControl(); 
+        rollerControl();
+        driveTrainControl();      
+    }
+
+void usercontrol( void ) {
+  autoRunning = false;
+  // User control code here, inside the loop
+    
+  //initiate task for triggers, like cap control and puncher button
+  //vex::task stop(autoTask); 
+  vex::task driveTriggers(driveTask);
+  
+  //initiate task for brain and controller displays
+  vex::task display(displayTask);
+  resetOthers();
+  resetDrive();
+
+  vex::task::stop(pidTask); 
+  vex::task::stop(turnTask);
+  while (true) {
+    allRemoteFunc();  
+    vex::task::sleep(20); //Sleep the task for a short amount of time to prevent wasted resources. 
+  }
+}
+
+int main() {
+    //Set up callbacks for autonomous and driver control periods.
+    Competition.autonomous( autonomous );
+    Competition.drivercontrol( usercontrol );
+    
+    //Run the pre-autonomous function. 
+    pre_auton();
+       
+    //Prevent main from exiting with an infinite loop.                        
+    while(true) {
+      vex::task::sleep(100);//Sleep the task for a short amount of time to prevent wasted resources.
+    }    
+       
+}
