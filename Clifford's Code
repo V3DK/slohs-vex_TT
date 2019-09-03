@@ -17,10 +17,10 @@ vex::competition Competition;
   vex::motor frontRight = vex::motor(vex::PORT10, vex::gearSetting::ratio18_1, true);
   vex::motor backRight = vex::motor(vex::PORT20, vex::gearSetting::ratio18_1, true);
   //other
-  vex::motor leftRoller = vex::motor(vex::PORT14, vex::gearSetting::ratio6_1);
+  vex::motor leftRoller = vex::motor(vex::PORT14, vex::gearSetting::ratio36_1);
   vex::motor rightRoller = vex::motor(vex::PORT17, vex::gearSetting::ratio36_1);
-  vex::motor angler = vex::motor(vex::PORT16, vex::gearSetting::ratio18_1);
-  vex::motor lift = vex::motor(vex::PORT15, vex::gearSetting::ratio18_1);
+  vex::motor angler = vex::motor(vex::PORT16, vex::gearSetting::ratio36_1);
+  vex::motor lift = vex::motor(vex::PORT12, vex::gearSetting::ratio36_1);
   //controller
   vex::controller Controller1 = vex::controller();
 
@@ -462,7 +462,6 @@ void autonomous( void ) {
     vex::task::sleep(10000);
 }
     
-    
     void driveLockDetect(){
         if(Controller1.ButtonLeft.pressing()){
            //wait until released
@@ -475,114 +474,80 @@ void autonomous( void ) {
        }
     }
 
-    void autoLift(){
-      //if lift trigger is clicked
-      //low position
+    void liftMovement(){
       if(liftTrigger){
         if(liftPos == 0){
-          anglerOut = false;
+          Brain.Screen.printAt(1, 120, "0");
+          lift.rotateTo(-100,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
           angler.rotateTo(0,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-          lift.rotateTo(0,vex::rotationUnits::deg,50,vex::velocityUnits::pct);
-          lift.setTimeout(600, vex::timeUnits::msec);
+          lift.rotateTo(0,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          anglerOut = false;
         }
-          //medium position
         else if(liftPos == 1){
           anglerOut = true;
-          angler.rotateTo(360,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-          lift.rotateTo(-530,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-          lift.setTimeout(1000, vex::timeUnits::msec);
+          Brain.Screen.printAt(1, 140, "1");
+          angler.rotateTo(250,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+          lift.rotateTo(-320,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+
         }
-          //highest position
         else if(liftPos == 2){
           anglerOut = true;
-          angler.rotateTo(360,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-          lift.rotateTo(-700,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-          lift.setTimeout(1000, vex::timeUnits::msec);
+          angler.rotateTo(250,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+          lift.rotateTo(-420,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          Brain.Screen.printAt(1, 160, "2");
         }
-        
         liftTrigger = false;
       }
+
+      if(!liftTrigger && liftPos != 0)
+        lift.stop(vex::brakeType::hold);
+      else if(!liftTrigger && liftPos == 0)
+        lift.stop(vex::brakeType::coast);
+
+    }
+
+    void liftTriggerDetect(){
+      if(Controller1.ButtonB.pressing()){
+           //wait until released
+           while(Controller1.ButtonB.pressing()){
+               vex::task::sleep(50);
+           }
+           //run func
+           
+            liftTrigger = true;
+            if(liftPos < 2)
+              liftPos = 1 - liftPos;
+            
+       }
+       else if(Controller1.ButtonX.pressing()){
+        //wait until released
+           while(Controller1.ButtonX.pressing()){
+               vex::task::sleep(100);
+           }
+           //run func
+            liftTrigger = !liftTrigger;
+            liftPos = 2 - liftPos;
+       }
+       
     }
     
-    void liftTriggerDetect(){
-      //toggle between high and medium
-      if(Controller1.ButtonB.pressing()){
-        //wait until released
-        while(Controller1.ButtonB.pressing()){
-          vex::task::sleep(100);
+
+    void controllerDisplay(){/*
+      Controller1.Screen.clearScreen();
+        if(!driveLockOn){
+          Controller1.Screen.setCursor(3, 1);
+          Controller1.Screen.print("Off");
         }
-          //run func
-          if(liftPos != 2){
-            liftTrigger = true;
-            liftPos = 1 - liftPos;
-          }
-      }  
-      //lowest flag toggle
-      else if(Controller1.ButtonX.pressing()){
-      //wait until released
-        while(Controller1.ButtonX.pressing()){
-          vex::task::sleep(100);
-        }
-        //run func
-        liftTrigger = true;
-        liftPos = 2 - liftPos;
-      }
-
-      //motor holds
-      if(!liftTrigger){
-        if(liftPos == 0)
-          lift.stop(vex::brakeType::coast);
-
-        //medium flag
-        else if(liftPos == 1)
-          lift.stop(vex::brakeType::hold);
-
-        //lowest flag
-        else if(liftPos == 2)
-          lift.stop(vex::brakeType::hold);
-      }
-
+        else
+        {
+          Controller1.Screen.setCursor(3, 1);
+          Controller1.Screen.print("On");
+        }   
+        */   
     }
-
-
-void driveTaskFunc(){    
-
-  //drive lock for platform
-    driveLockDetect();
-
-  //toggles
-    autoLift();
-    liftTriggerDetect();
-
-  //normal lift control
-    //liftControl();
-    }
-
-int driveTask(){
-        while(true){
-            driveTaskFunc();
-            //to not waste resources
-            vex::task::sleep(20);
-        }
-        return 0;
-    }
-
-    void controllerDisplay(){
-            Controller1.Screen.clearScreen();
-                    if(!driveLockOn){
-                    Controller1.Screen.setCursor(3, 1);
-                    //Controller1.Screen.print("               Off");
-                    Controller1.Screen.print("Off");
-                    }
-                    else
-                    {
-                        Controller1.Screen.setCursor(3, 1);
-                    Controller1.Screen.print("On");
-                    }      
-        }
 
     void brainDisplay(){
-      Brain.Screen.clearScreen();
+        //Brain.Screen.clearScreen();
         //Brain.Screen.printAt(1, 115, "%d", vex::timer::system());
 
         // Brain.Screen.printAt(1, 120, "%d", test);
@@ -592,9 +557,6 @@ int driveTask(){
         //Brain.Screen.printAt(1, 35, "%d", Gyro.value(vex::analogUnits::range12bit));
         //Brain.Screen.printAt(1, 100, "%.6f", (gScale * Gyro2.value(vex::analogUnits::range12bit)));
 
-        //Brain.Screen.printAt(1, 55, "%.6f", driveAvg());
-
-
         // Brain.Screen.printAt(1, 75, "%.6f", (gScale * Gyro2.value(vex::analogUnits::range12bit)));
         //Brain.Screen.printAt(1, 135, "%.6f", (avgGyro()));  
 
@@ -603,9 +565,7 @@ int driveTask(){
         //Brain.Screen.printAt(1, 115, "%.6f", FrontLeft.rotation(vex::rotationUnits::deg));
         //Brain.Screen.printAt(1, 135, "%.6f", BackLeft.rotation(vex::rotationUnits::deg));
         //Brain.Screen.printAt(1, 155, "%.6f", FrontRight.rotation(vex::rotationUnits::deg));
-        //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));
-
-        //Brain.Screen.printAt(1, 195, "5FlagRed");          
+        //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));         
     }
 
     //task only used to update brain and controller displays
@@ -619,6 +579,35 @@ int driveTask(){
       }
       return 0;
     }
+    int driveTask(){
+        while(true){
+          //drive lock for platform
+          driveLockDetect();
+
+          //to not waste resources
+            vex::task::sleep(20);
+        }
+        return 0;
+    }
+
+    int anglerTask(){
+        while(true){
+          
+          //to not waste resources
+          vex::task::sleep(20);
+        }
+        return 0;
+    }
+
+    int liftTask(){
+        while(true){
+          liftMovement();
+          liftTriggerDetect();
+            //to not waste resources
+            vex::task::sleep(20);
+        }
+        return 0;
+    } 
 
     void driveTrainControl(void){
       moveLeft(Controller1.Axis3.value());
@@ -645,18 +634,17 @@ int driveTask(){
     void anglerControl(){
       if(!anglerOut){
         if(Controller1.ButtonR1.pressing()){
-          angler.spin(vex::directionType::fwd, (maxSpeed * 0.5), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::fwd, (maxSpeed * 1), vex::velocityUnits::pct);
         }
         else if(Controller1.ButtonR2.pressing()){
-          angler.spin(vex::directionType::rev, (maxSpeed * 0.5), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::rev, (maxSpeed * 1), vex::velocityUnits::pct);
         }
         else {
-          angler.stop(vex::brakeType::hold);
+          angler.stop(vex::brakeType::coast);
         }
       }
-      else if(anglerOut){
+      else if(anglerOut && !liftTrigger)
         angler.stop(vex::brakeType::hold);
-      }
     }
           
     void allRemoteFunc(void){
@@ -672,6 +660,8 @@ void usercontrol( void ) {
   //initiate task for triggers, like cap control and puncher button
   //vex::task stop(autoTask); 
   vex::task driveTriggers(driveTask);
+  vex::task anglerTriggers(angleTask);
+  vex::task liftTriggers(liftTask);
   
   //initiate task for brain and controller displays
   vex::task display(displayTask);
@@ -681,7 +671,7 @@ void usercontrol( void ) {
   vex::task::stop(pidTask); 
   vex::task::stop(turnTask);
   while (true) {
-    allRemoteFunc();  
+    allRemoteFunc();
     vex::task::sleep(20); //Sleep the task for a short amount of time to prevent wasted resources. 
   }
 }
