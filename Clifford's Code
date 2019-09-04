@@ -17,10 +17,10 @@ vex::competition Competition;
   vex::motor frontRight = vex::motor(vex::PORT10, vex::gearSetting::ratio18_1, true);
   vex::motor backRight = vex::motor(vex::PORT20, vex::gearSetting::ratio18_1, true);
   //other
-  vex::motor leftRoller = vex::motor(vex::PORT14, vex::gearSetting::ratio36_1);
+  vex::motor leftRoller = vex::motor(vex::PORT14, vex::gearSetting::ratio6_1);
   vex::motor rightRoller = vex::motor(vex::PORT17, vex::gearSetting::ratio36_1);
-  vex::motor angler = vex::motor(vex::PORT16, vex::gearSetting::ratio36_1);
-  vex::motor lift = vex::motor(vex::PORT12, vex::gearSetting::ratio36_1);
+  vex::motor angler = vex::motor(vex::PORT16, vex::gearSetting::ratio18_1);
+  vex::motor lift = vex::motor(vex::PORT12, vex::gearSetting::ratio18_1);
   //controller
   vex::controller Controller1 = vex::controller();
 
@@ -35,10 +35,14 @@ vex::competition Competition;
 
   //drive bools
   bool driveLockOn = false;
+  bool straightMove = false;
+  double driveFrac = 1;
 
   //lift vars
   bool liftTrigger = false;
   int liftPos = 0;
+
+  double rollerFrac = 1;
 
   //angler
   bool anglerOut = false;
@@ -474,26 +478,44 @@ void autonomous( void ) {
        }
     }
 
+    void straightDrive(){
+      if(Controller1.ButtonUp.pressing()){
+        straightMove = true;
+        while(Controller1.ButtonUp.pressing()){
+          moveLeft(20);
+          moveRight(20);
+        }
+      }
+      else if(Controller1.ButtonDown.pressing()){
+        straightMove = true;
+        while(Controller1.ButtonDown.pressing()){
+          moveLeft(-20);
+          moveRight(-20);
+        }
+      }
+      straightMove = false;
+    }
+
     void liftMovement(){
       if(liftTrigger){
         if(liftPos == 0){
           Brain.Screen.printAt(1, 120, "0");
-          lift.rotateTo(-100,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(-150,vex::rotationUnits::deg,70,vex::velocityUnits::pct);
           angler.rotateTo(0,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-          lift.rotateTo(0,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(-75,vex::rotationUnits::deg,40,vex::velocityUnits::pct);
           anglerOut = false;
         }
         else if(liftPos == 1){
           anglerOut = true;
           Brain.Screen.printAt(1, 140, "1");
-          angler.rotateTo(250,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
-          lift.rotateTo(-320,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          angler.rotateTo(350,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+          lift.rotateTo(-575,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
 
         }
         else if(liftPos == 2){
           anglerOut = true;
-          angler.rotateTo(250,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
-          lift.rotateTo(-420,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          angler.rotateTo(350,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+          lift.rotateTo(-700,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
           Brain.Screen.printAt(1, 160, "2");
         }
         liftTrigger = false;
@@ -513,24 +535,39 @@ void autonomous( void ) {
                vex::task::sleep(50);
            }
            //run func
-           
             liftTrigger = true;
             if(liftPos < 2)
               liftPos = 1 - liftPos;
-            
        }
        else if(Controller1.ButtonX.pressing()){
         //wait until released
            while(Controller1.ButtonX.pressing()){
-               vex::task::sleep(100);
+               vex::task::sleep(75);
            }
            //run func
             liftTrigger = !liftTrigger;
             liftPos = 2 - liftPos;
        }
-       
     }
-    
+
+
+int liftTask(){
+  while(true){
+    liftMovement();
+    liftTriggerDetect();
+    vex::task::sleep(20);
+  }
+return 0;
+}
+
+int driveTask(){
+        while(true){
+          driveLockDetect();
+          straightDrive();
+          vex::task::sleep(20);
+        }
+        return 0;
+    }
 
     void controllerDisplay(){/*
       Controller1.Screen.clearScreen();
@@ -565,7 +602,9 @@ void autonomous( void ) {
         //Brain.Screen.printAt(1, 115, "%.6f", FrontLeft.rotation(vex::rotationUnits::deg));
         //Brain.Screen.printAt(1, 135, "%.6f", BackLeft.rotation(vex::rotationUnits::deg));
         //Brain.Screen.printAt(1, 155, "%.6f", FrontRight.rotation(vex::rotationUnits::deg));
-        //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));         
+        //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));
+
+                  
     }
 
     //task only used to update brain and controller displays
@@ -579,92 +618,77 @@ void autonomous( void ) {
       }
       return 0;
     }
-    int driveTask(){
-        while(true){
-          //drive lock for platform
-          driveLockDetect();
-
-          //to not waste resources
-            vex::task::sleep(20);
-        }
-        return 0;
-    }
-
-    int anglerTask(){
-        while(true){
-          
-          //to not waste resources
-          vex::task::sleep(20);
-        }
-        return 0;
-    }
-
-    int liftTask(){
-        while(true){
-          liftMovement();
-          liftTriggerDetect();
-            //to not waste resources
-            vex::task::sleep(20);
-        }
-        return 0;
-    } 
 
     void driveTrainControl(void){
-      moveLeft(Controller1.Axis3.value());
-      moveRight(Controller1.Axis2.value());
+      if(!straightMove){
+        moveLeft(Controller1.Axis3.value() * driveFrac);
+        moveRight(Controller1.Axis2.value() * driveFrac);
+      }
+
+      if(liftPos != 0)
+        driveFrac = 0.5;
+      else
+        driveFrac = 1;
     }
 
     void rollerControl(void){
+      if((!Controller1.ButtonR1.pressing()) && (!Controller1.ButtonR2.pressing())){
+        if(Controller1.ButtonL2.pressing()){
+          leftRoller.spin(vex::directionType::fwd, (maxSpeed * rollerFrac), vex::velocityUnits::pct);
+          rightRoller.spin(vex::directionType::rev, (maxSpeed * rollerFrac), vex::velocityUnits::pct);
+        }
+        else if(Controller1.ButtonL1.pressing()){
+          leftRoller.spin(vex::directionType::rev, (maxSpeed * rollerFrac), vex::velocityUnits::pct);
+          rightRoller.spin(vex::directionType::fwd, (maxSpeed * rollerFrac), vex::velocityUnits::pct);
+        }
+        else {
+          leftRoller.stop(vex::brakeType::hold);
+          rightRoller.stop(vex::brakeType::hold);
+          
+        }
+      }
 
-      if(Controller1.ButtonL2.pressing()){
-        leftRoller.spin(vex::directionType::fwd, (maxSpeed * 1), vex::velocityUnits::pct);
-        rightRoller.spin(vex::directionType::rev, (maxSpeed * 1), vex::velocityUnits::pct);
-      }
-      else if(Controller1.ButtonL1.pressing()){
-        leftRoller.spin(vex::directionType::rev, (maxSpeed * 1), vex::velocityUnits::pct);
-        rightRoller.spin(vex::directionType::fwd, (maxSpeed * 1), vex::velocityUnits::pct);
-      }
-      else {
-        leftRoller.stop(vex::brakeType::hold);
-        rightRoller.stop(vex::brakeType::hold);
-        
-      }
+      if(liftPos != 0)
+        rollerFrac = 0.5;
+      else
+        rollerFrac = 1;
     }
 
     void anglerControl(){
       if(!anglerOut){
         if(Controller1.ButtonR1.pressing()){
-          angler.spin(vex::directionType::fwd, (maxSpeed * 1), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::fwd, (maxSpeed * 0.4), vex::velocityUnits::pct);
         }
         else if(Controller1.ButtonR2.pressing()){
-          angler.spin(vex::directionType::rev, (maxSpeed * 1), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::rev, (maxSpeed * 0.4), vex::velocityUnits::pct);
         }
         else {
           angler.stop(vex::brakeType::coast);
         }
       }
-      else if(anglerOut && !liftTrigger)
+      else if(anglerOut && !liftTrigger){
         angler.stop(vex::brakeType::hold);
+      }
     }
           
     void allRemoteFunc(void){
         anglerControl(); 
         rollerControl();
-        driveTrainControl();      
+        driveTrainControl();
     }
 
 void usercontrol( void ) {
   autoRunning = false;
   // User control code here, inside the loop
     
-  //initiate task for triggers, like cap control and puncher button
-  //vex::task stop(autoTask); 
+  //initiate task for triggers, like drive control 
   vex::task driveTriggers(driveTask);
-  vex::task anglerTriggers(angleTask);
-  vex::task liftTriggers(liftTask);
   
   //initiate task for brain and controller displays
   vex::task display(displayTask);
+
+  //initiate lift task
+  vex::task liftTriggers(liftTask);
   resetOthers();
   resetDrive();
 
