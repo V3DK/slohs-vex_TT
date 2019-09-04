@@ -24,7 +24,6 @@ vex::competition Competition;
   //controller
   vex::controller Controller1 = vex::controller();
 
-
   // variables
   int maxSpeed = 100;
 
@@ -442,28 +441,59 @@ void driveCoast(){
         backRight.setTimeout(rightTime, vex::timeUnits::sec);
     }
 
-/*---------------------------------------------------------------------------*/
-/*                                                                           */
-/*                              Autonomous Task                              */
-/*                                                                           */
-/*  This task is used to control your robot during the autonomous phase of   */
-/*  a VEX Competition.                                                       */
-/*                                                                           */
-/*  You must modify the code to add your own robot specific commands here.   */
-/*---------------------------------------------------------------------------*/
+void flipOutSequence(){
+  //angler rotates from 0 out
+  angler.rotateTo(200,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
+  //lift moves up to deploy rollers (clear locks)
+  lift.rotateTo(-200,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+  vex::task::sleep(500);
+  
+  //bring lift and tray back to robot
+
+}
+
+void redFrontFive(){
+  //clear screen
+  Brain.Screen.clearScreen();
+
+  //set holds for auto movement
+  angler.setStopping(vex::brakeType::hold);
+  leftRoller.setStopping(vex::brakeType::hold);
+  rightRoller.setStopping(vex::brakeType::hold);
+  lift.setStopping(vex::brakeType::hold);
+
+  //reset driveTrain encoders
+  resetDrive();
+  resetOthers();
+
+/*  begin flip out movement  */
+  //move tray out
+  angler.rotateTo(200,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
+  lift.rotateTo(-575,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+
+  //run drive forward for 34 inches
+  //driveMoveFor(36, 60);
+  startPid(32, 80, true);
+  
+}
+
+void blueFrontFive(){
+
+}
 
 void autonomous( void ) {
   vex::task pidTasks(pidTask);
-    vex::task turnTasks(turnTask);
+  vex::task turnTasks(turnTask);
+  autoRunning = true;
+  //Brain.Screen.printAt(1, 15, "BlueBackFar");
+  redFrontFive();
 
-    autoRunning = false;
-    //Brain.Screen.printAt(1, 15, "BlueBackFar");              
-
-    //stop pid task - only needed for auto
-    vex::task::stop(pidTask); 
-    vex::task::stop(turnTask); 
-    //wait 10 seconds - just in case (no repeat)
-    vex::task::sleep(10000);
+  //stop pid task - only needed for auto
+  vex::task::stop(pidTask); 
+  vex::task::stop(turnTask); 
+  autoRunning = false;
+  //wait 10 seconds - just in case (no repeat)
+  vex::task::sleep(10000);
 }
     
     void driveLockDetect(){
@@ -550,26 +580,29 @@ void autonomous( void ) {
        }
     }
 
-
 int liftTask(){
   while(true){
-    liftMovement();
-    liftTriggerDetect();
+    if(!autoRunning){
+      liftMovement();
+      liftTriggerDetect();
+    }
     vex::task::sleep(20);
   }
 return 0;
 }
 
 int driveTask(){
-        while(true){
-          driveLockDetect();
-          straightDrive();
-          vex::task::sleep(20);
-        }
-        return 0;
+  while(true){
+    if(!autoRunning){
+      driveLockDetect();
+      straightDrive();
+    }
+    vex::task::sleep(20);
+  }
+  return 0;
     }
 
-    void controllerDisplay(){/*
+    void controllerDisplay(){
       Controller1.Screen.clearScreen();
         if(!driveLockOn){
           Controller1.Screen.setCursor(3, 1);
@@ -579,8 +612,7 @@ int driveTask(){
         {
           Controller1.Screen.setCursor(3, 1);
           Controller1.Screen.print("On");
-        }   
-        */   
+        }    
     }
 
     void brainDisplay(){
@@ -603,16 +635,16 @@ int driveTask(){
         //Brain.Screen.printAt(1, 135, "%.6f", BackLeft.rotation(vex::rotationUnits::deg));
         //Brain.Screen.printAt(1, 155, "%.6f", FrontRight.rotation(vex::rotationUnits::deg));
         //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));
-
-                  
     }
 
     //task only used to update brain and controller displays
     //also used to select auton's
     int displayTask(){
       while(true){
+        if(!autoRunning){
           controllerDisplay();
           brainDisplay();
+        }
           //to not waste resources - 150 cause display doesn't need to be updated super fast
           vex::task::sleep(150);
       }
@@ -649,7 +681,7 @@ int driveTask(){
       }
 
       if(liftPos != 0)
-        rollerFrac = 0.5;
+        rollerFrac = 0.75;
       else
         rollerFrac = 1;
     }
@@ -672,9 +704,11 @@ int driveTask(){
     }
           
     void allRemoteFunc(void){
+      if(!autoRunning){
         anglerControl(); 
         rollerControl();
         driveTrainControl();
+      }
     }
 
 void usercontrol( void ) {
@@ -712,5 +746,4 @@ int main() {
     while(true) {
       vex::task::sleep(100);//Sleep the task for a short amount of time to prevent wasted resources.
     }    
-       
 }
