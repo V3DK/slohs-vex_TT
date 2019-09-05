@@ -143,7 +143,7 @@ bool isDriving(float tar){
 }
 
 //slew rate
-int accel_step = 7;
+int accel_step = 4;
 int deccel_step = 256; // no decel slew
 int lSpeed = 0;
 int rSpeed = 0;
@@ -441,18 +441,12 @@ void driveCoast(){
         backRight.setTimeout(rightTime, vex::timeUnits::sec);
     }
 
-void flipOutSequence(){
-  //angler rotates from 0 out
-  angler.rotateTo(200,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
-  //lift moves up to deploy rollers (clear locks)
-  lift.rotateTo(-200,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-  vex::task::sleep(500);
+void redFrontFive(){
   
-  //bring lift and tray back to robot
-
+  
 }
 
-void redFrontFive(){
+void blueFrontFive(){
   //clear screen
   Brain.Screen.clearScreen();
 
@@ -467,18 +461,54 @@ void redFrontFive(){
   resetOthers();
 
 /*  begin flip out movement  */
-  //move tray out
-  angler.rotateTo(200,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
-  lift.rotateTo(-575,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
-
-  //run drive forward for 34 inches
-  //driveMoveFor(36, 60);
-  startPid(32, 80, true);
   
-}
 
-void blueFrontFive(){
+  //drive forward while rollers flip out
+  //angler rotates from 0 out
+  angler.rotateTo(300,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+  startPid(7, 50, true);
+  driveCoast();
+  
+  startPid(-4.5, 50, true);
+  driveCoast();
 
+  //lift moves up to deploy rollers (clear locks)
+  lift.rotateTo(-550,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
+
+  lift.setStopping(vex::brakeType::coast);
+  lift.rotateTo(-100,vex::rotationUnits::deg,75,vex::velocityUnits::pct, false);
+  
+  angler.rotateTo(0,vex::rotationUnits::deg,50,vex::velocityUnits::pct, true);
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
+
+  //drive forward while rollers flip out
+  startPid(10, 45, true);
+  startPid(26, 20, true);
+  driveCoast();
+
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed * 0.5), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed * 0.5), vex::velocityUnits::pct);
+
+  startPid(-15, 60, true);
+  driveCoast();
+
+  //stop rollers
+  leftRoller.stop(vex::brakeType::hold);
+  rightRoller.stop(vex::brakeType::hold);
+
+  startTurn(15.25, 50);
+  driveCoast();
+  leftRoller.rotateFor(-400,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(400,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, false);
+
+  startPid(20, 70, true);
+  driveCoast();
+  angler.rotateTo(750,vex::rotationUnits::deg, 60, vex::velocityUnits::pct, true);
+  angler.rotateTo(1300,vex::rotationUnits::deg, 35, vex::velocityUnits::pct, true);
+  vex::task::sleep(250);
+  startPid(-3, 20, true);
+  driveCoast();
 }
 
 void autonomous( void ) {
@@ -486,7 +516,7 @@ void autonomous( void ) {
   vex::task turnTasks(turnTask);
   autoRunning = true;
   //Brain.Screen.printAt(1, 15, "BlueBackFar");
-  redFrontFive();
+  blueFrontFive();
 
   //stop pid task - only needed for auto
   vex::task::stop(pidTask); 
@@ -531,27 +561,30 @@ void autonomous( void ) {
         if(liftPos == 0){
           Brain.Screen.printAt(1, 120, "0");
           lift.rotateTo(-150,vex::rotationUnits::deg,70,vex::velocityUnits::pct);
+          lift.setTimeout(1000, vex::timeUnits::msec);
           angler.rotateTo(0,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          angler.setTimeout(1000, vex::timeUnits::msec);
           lift.rotateTo(-75,vex::rotationUnits::deg,40,vex::velocityUnits::pct);
+          lift.setTimeout(1000, vex::timeUnits::msec);
           anglerOut = false;
         }
         else if(liftPos == 1){
           anglerOut = true;
           Brain.Screen.printAt(1, 140, "1");
           angler.rotateTo(350,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
-          lift.rotateTo(-575,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(-730,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
 
         }
         else if(liftPos == 2){
           anglerOut = true;
           angler.rotateTo(350,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
-          lift.rotateTo(-700,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
+          lift.rotateTo(-850,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
           Brain.Screen.printAt(1, 160, "2");
         }
         liftTrigger = false;
       }
 
-      if(!liftTrigger && liftPos != 0)
+      if((!liftTrigger && liftPos != 0) || (angler.rotation(vex::rotationUnits::deg) > 50))
         lift.stop(vex::brakeType::hold);
       else if(!liftTrigger && liftPos == 0)
         lift.stop(vex::brakeType::coast);
@@ -686,13 +719,22 @@ int driveTask(){
         rollerFrac = 1;
     }
 
+    double anglerFrac;
+    int aPos;
     void anglerControl(){
+      
+      aPos = angler.rotation(vex::rotationUnits::deg);
+      if(aPos > 500)
+        anglerFrac = 0.25;
+      else if(aPos < 500)
+        anglerFrac = 0.6;
+
       if(!anglerOut){
         if(Controller1.ButtonR1.pressing()){
-          angler.spin(vex::directionType::fwd, (maxSpeed * 0.4), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::fwd, (maxSpeed * anglerFrac), vex::velocityUnits::pct);
         }
         else if(Controller1.ButtonR2.pressing()){
-          angler.spin(vex::directionType::rev, (maxSpeed * 0.4), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::rev, (maxSpeed * anglerFrac), vex::velocityUnits::pct);
         }
         else {
           angler.stop(vex::brakeType::coast);
