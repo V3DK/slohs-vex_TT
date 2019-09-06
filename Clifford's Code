@@ -9,7 +9,6 @@ using namespace vex;
 vex::brain       Brain;
 // A global instance of vex::competition
 vex::competition Competition;
-
 // define your global instances of motors and other devices here
   //drive
   vex::motor frontLeft = vex::motor(vex::PORT1, vex::gearSetting::ratio18_1);
@@ -23,6 +22,12 @@ vex::competition Competition;
   vex::motor lift = vex::motor(vex::PORT12, vex::gearSetting::ratio18_1);
   //controller
   vex::controller Controller1 = vex::controller();
+  //limit switches
+  vex::limit upLimit = vex::limit(Brain.ThreeWirePort.A);
+  vex::limit downLimit = vex::limit(Brain.ThreeWirePort.B);
+
+  int autoPos = 1;
+  int autoMax = 4;
 
   // variables
   int maxSpeed = 100;
@@ -373,7 +378,7 @@ void pre_auton( void ) {
     //reset all other encoders
     resetDrive();
     Brain.Screen.clearScreen();
-    Brain.Screen.printAt(1, 40, "Ready!");
+    Brain.Screen.printAt(1, 15, "Ready!");
 }
 
 void driveCoast(){
@@ -442,11 +447,6 @@ void driveCoast(){
     }
 
 void redFrontFive(){
-  
-  
-}
-
-void blueFrontFive(){
   //clear screen
   Brain.Screen.clearScreen();
 
@@ -459,9 +459,6 @@ void blueFrontFive(){
   //reset driveTrain encoders
   resetDrive();
   resetOthers();
-
-/*  begin flip out movement  */
-  
 
   //drive forward while rollers flip out
   //angler rotates from 0 out
@@ -483,8 +480,126 @@ void blueFrontFive(){
   rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
 
   //drive forward while rollers flip out
-  startPid(10, 45, true);
-  startPid(26, 20, true);
+  startPid(10, 60, true);
+  startPid(26, 30, true);
+  driveCoast();
+
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed * 0.5), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed * 0.5), vex::velocityUnits::pct);
+
+  startPid(-15, 60, true);
+  driveCoast();
+
+  //stop rollers
+  leftRoller.stop(vex::brakeType::hold);
+  rightRoller.stop(vex::brakeType::hold);
+
+  startTurn(-15.25, 50);
+  driveCoast();
+  leftRoller.rotateFor(-300,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(300,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+
+  startPid(21, 60, true);
+  driveCoast();
+  angler.rotateTo(600,vex::rotationUnits::deg, 60, vex::velocityUnits::pct, true);
+  angler.rotateTo(1300,vex::rotationUnits::deg, 35, vex::velocityUnits::pct, true);
+  vex::task::sleep(250);
+  startPid(-5, 15, true);
+  driveCoast();
+}
+
+void redBack(){
+//clear screen
+  Brain.Screen.clearScreen();
+
+  //set holds for auto movement
+  angler.setStopping(vex::brakeType::hold);
+  leftRoller.setStopping(vex::brakeType::hold);
+  rightRoller.setStopping(vex::brakeType::hold);
+  lift.setStopping(vex::brakeType::hold);
+
+  //reset driveTrain encoders
+  resetDrive();
+  resetOthers();
+
+  //drive forward while rollers flip out
+  //angler rotates from 0 out
+  angler.rotateTo(300,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+  startPid(7, 50, true);
+  driveCoast();
+  
+  startPid(-4.5, 50, true);
+  driveCoast();
+
+  //lift moves up to deploy rollers (clear locks)
+  lift.rotateTo(-550,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
+
+  lift.setStopping(vex::brakeType::coast);
+  lift.rotateTo(-100,vex::rotationUnits::deg,75,vex::velocityUnits::pct, false);
+  
+  angler.rotateTo(0,vex::rotationUnits::deg,50,vex::velocityUnits::pct, true);
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
+
+  //drive forward while rollers flip out
+  startPid(36, 45, true);
+  driveCoast();
+
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed * 0.25), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed * 0.25), vex::velocityUnits::pct);
+  startTurn(15.25, 70);
+  driveCoast();
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
+  startPid(40, 85, true);
+  driveCoast();
+
+  leftRoller.rotateFor(-400,vex::rotationUnits::deg, 75, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(400,vex::rotationUnits::deg, 75, vex::velocityUnits::pct, true);
+ 
+  angler.rotateTo(750,vex::rotationUnits::deg, 60, vex::velocityUnits::pct, true);
+  angler.rotateTo(1300,vex::rotationUnits::deg, 35, vex::velocityUnits::pct, true);
+  vex::task::sleep(250);
+  startPid(-5, 20, true);
+  driveCoast();
+}
+
+void blueFrontFive(){
+  //clear screen
+  Brain.Screen.clearScreen();
+
+  //set holds for auto movement
+  angler.setStopping(vex::brakeType::hold);
+  leftRoller.setStopping(vex::brakeType::hold);
+  rightRoller.setStopping(vex::brakeType::hold);
+  lift.setStopping(vex::brakeType::hold);
+
+  //reset driveTrain encoders
+  resetDrive();
+  resetOthers();
+
+  //drive forward while rollers flip out
+  //angler rotates from 0 out
+  angler.rotateTo(300,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+  startPid(7, 50, true);
+  driveCoast();
+  
+  startPid(-4.5, 50, true);
+  driveCoast();
+
+  //lift moves up to deploy rollers (clear locks)
+  lift.rotateTo(-550,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
+
+  lift.setStopping(vex::brakeType::coast);
+  lift.rotateTo(-100,vex::rotationUnits::deg,75,vex::velocityUnits::pct, false);
+  
+  angler.rotateTo(0,vex::rotationUnits::deg,50,vex::velocityUnits::pct, true);
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
+
+  //drive forward while rollers flip out
+  startPid(10, 60, true);
+  startPid(26, 30, true);
   driveCoast();
 
   leftRoller.spin(vex::directionType::fwd, (maxSpeed * 0.5), vex::velocityUnits::pct);
@@ -499,24 +614,99 @@ void blueFrontFive(){
 
   startTurn(15.25, 50);
   driveCoast();
-  leftRoller.rotateFor(-400,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, false);
-  rightRoller.rotateFor(400,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, false);
+  leftRoller.rotateFor(-300,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(300,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
 
-  startPid(20, 70, true);
+  startPid(21, 60, true);
   driveCoast();
+  angler.rotateTo(600,vex::rotationUnits::deg, 60, vex::velocityUnits::pct, true);
+  angler.rotateTo(1300,vex::rotationUnits::deg, 35, vex::velocityUnits::pct, true);
+  vex::task::sleep(250);
+  startPid(-5, 15, true);
+  driveCoast();
+}
+
+
+void blueBack() {
+  //clear screen
+  Brain.Screen.clearScreen();
+
+  //set holds for auto movement
+  angler.setStopping(vex::brakeType::hold);
+  leftRoller.setStopping(vex::brakeType::hold);
+  rightRoller.setStopping(vex::brakeType::hold);
+  lift.setStopping(vex::brakeType::hold);
+
+  //reset driveTrain encoders
+  resetDrive();
+  resetOthers();
+
+  //drive forward while rollers flip out
+  //angler rotates from 0 out
+  angler.rotateTo(300,vex::rotationUnits::deg,100,vex::velocityUnits::pct, false);
+  startPid(7, 50, true);
+  driveCoast();
+  
+  startPid(-4.5, 50, true);
+  driveCoast();
+
+  //lift moves up to deploy rollers (clear locks)
+  lift.rotateTo(-550,vex::rotationUnits::deg,100,vex::velocityUnits::pct, true);
+
+  lift.setStopping(vex::brakeType::coast);
+  lift.rotateTo(-100,vex::rotationUnits::deg,75,vex::velocityUnits::pct, false);
+  
+  angler.rotateTo(0,vex::rotationUnits::deg,50,vex::velocityUnits::pct, true);
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
+
+  //drive forward while rollers flip out
+  startPid(36, 45, true);
+  driveCoast();
+
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed * 0.25), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed * 0.25), vex::velocityUnits::pct);
+  startTurn(-15.25, 70);
+  driveCoast();
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
+  startPid(40, 85, true);
+  driveCoast();
+
+  leftRoller.rotateFor(-300,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(300,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, true);
+ 
   angler.rotateTo(750,vex::rotationUnits::deg, 60, vex::velocityUnits::pct, true);
   angler.rotateTo(1300,vex::rotationUnits::deg, 35, vex::velocityUnits::pct, true);
   vex::task::sleep(250);
-  startPid(-3, 20, true);
+  startPid(-5, 20, true);
   driveCoast();
 }
+
 
 void autonomous( void ) {
   vex::task pidTasks(pidTask);
   vex::task turnTasks(turnTask);
   autoRunning = true;
-  //Brain.Screen.printAt(1, 15, "BlueBackFar");
-  blueFrontFive();
+
+  switch(autoPos){
+  	case 1:
+  		blueFrontFive();
+  		Brain.Screen.printAt(1, 60, "Blue Front Five");
+  		break;
+  	case 2:
+  		redFrontFive();
+  		Brain.Screen.printAt(1, 60, "Red Front Five");
+  		break;
+  	case 3:
+  		blueBack();
+  		Brain.Screen.printAt(1, 60, "Blue Back Four");
+  		break;
+  	case 4:
+  		redBack();
+  		Brain.Screen.printAt(1, 60, "Red Back Four");
+  		break;
+  }
 
   //stop pid task - only needed for auto
   vex::task::stop(pidTask); 
@@ -584,7 +774,7 @@ void autonomous( void ) {
         liftTrigger = false;
       }
 
-      if((!liftTrigger && liftPos != 0) || (angler.rotation(vex::rotationUnits::deg) > 50))
+      if(!liftTrigger && liftPos != 0)
         lift.stop(vex::brakeType::hold);
       else if(!liftTrigger && liftPos == 0)
         lift.stop(vex::brakeType::coast);
@@ -649,25 +839,9 @@ int driveTask(){
     }
 
     void brainDisplay(){
-        //Brain.Screen.clearScreen();
-        //Brain.Screen.printAt(1, 115, "%d", vex::timer::system());
-
-        // Brain.Screen.printAt(1, 120, "%d", test);
-        //Brain.Screen.printAt(1, 15, "%d", Gyro.value(vex::analogUnits::pct));
-        //Brain.Screen.printAt(1, 15, "%d", Gyro.value(vex::analogUnits::range8bit));
-        //Brain.Screen.printAt(1, 50, "%.6f", Gyro.value(vex::analogUnits::range12bit));
-        //Brain.Screen.printAt(1, 35, "%d", Gyro.value(vex::analogUnits::range12bit));
-        //Brain.Screen.printAt(1, 100, "%.6f", (gScale * Gyro2.value(vex::analogUnits::range12bit)));
-
-        // Brain.Screen.printAt(1, 75, "%.6f", (gScale * Gyro2.value(vex::analogUnits::range12bit)));
-        //Brain.Screen.printAt(1, 135, "%.6f", (avgGyro()));  
-
-        //Brain.Screen.printAt(1, 160, "%.6f", autoSelect.rotation(vex::rotationUnits::deg));
-        //Brain.Screen.printAt(1, 155, "%.6f", (   (Gyro.value(vex::analogUnits::range12bit) + (gScale * Gyro2.value(vex::analogUnits::range12bit)))  / 2  ));
-        //Brain.Screen.printAt(1, 115, "%.6f", FrontLeft.rotation(vex::rotationUnits::deg));
-        //Brain.Screen.printAt(1, 135, "%.6f", BackLeft.rotation(vex::rotationUnits::deg));
-        //Brain.Screen.printAt(1, 155, "%.6f", FrontRight.rotation(vex::rotationUnits::deg));
-        //Brain.Screen.printAt(1, 175, "%.6f", BackRight.rotation(vex::rotationUnits::deg));
+        Brain.Screen.clearScreen();
+        Brain.Screen.printAt(1, 40, "autoPos:");
+        Brain.Screen.printAt(1, 60, "%d", autoPos);
     }
 
     //task only used to update brain and controller displays
@@ -734,7 +908,7 @@ int driveTask(){
           angler.spin(vex::directionType::fwd, (maxSpeed * anglerFrac), vex::velocityUnits::pct);
         }
         else if(Controller1.ButtonR2.pressing()){
-          angler.spin(vex::directionType::rev, (maxSpeed * anglerFrac), vex::velocityUnits::pct);
+          angler.spin(vex::directionType::rev, (maxSpeed * 0.75), vex::velocityUnits::pct);
         }
         else {
           angler.stop(vex::brakeType::coast);
@@ -744,12 +918,34 @@ int driveTask(){
         angler.stop(vex::brakeType::hold);
       }
     }
+
+    void autoSelector(){
+    	if(Controller1.ButtonRight.pressing()){
+    		while(Controller1.ButtonRight.pressing()){
+               vex::task::sleep(50);
+           }
+           if(autoPos == autoMax)
+           	autoPos = 1;
+           else
+           	autoPos++;
+    	}
+    	else if(Controller1.ButtonLeft.pressing()){
+    		while(Controller1.ButtonLeft.pressing()){
+               vex::task::sleep(50);
+           }
+           if(autoPos == 1)
+           	autoPos = autoMax;
+           else
+           	autoPos--;
+    	}
+    }
           
     void allRemoteFunc(void){
       if(!autoRunning){
         anglerControl(); 
         rollerControl();
         driveTrainControl();
+        autoSelector();
       }
     }
 
