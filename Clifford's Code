@@ -18,28 +18,32 @@ using namespace vex;
 competition Competition;
 
 // define your global instances of motors and other devices here
-//drive
-  vex::motor frontLeft = vex::motor(vex::PORT11, vex::gearSetting::ratio18_1);
-  vex::motor backLeft = vex::motor(vex::PORT8, vex::gearSetting::ratio18_1);
-  vex::motor frontRight = vex::motor(vex::PORT1, vex::gearSetting::ratio18_1, true);
-  vex::motor backRight = vex::motor(vex::PORT7, vex::gearSetting::ratio18_1, true);
-  //other
-  vex::motor leftRoller = vex::motor(vex::PORT20, vex::gearSetting::ratio6_1);
-  vex::motor rightRoller = vex::motor(vex::PORT19, vex::gearSetting::ratio36_1);
-  vex::motor angler = vex::motor(vex::PORT5, vex::gearSetting::ratio18_1);
-  vex::motor lift = vex::motor(vex::PORT6, vex::gearSetting::ratio18_1);
-  //controller
-  vex::controller Controller1 = vex::controller();
+//drivetrain
+vex::motor frontLeft = vex::motor(vex::PORT11, vex::gearSetting::ratio18_1);
+vex::motor backLeft = vex::motor(vex::PORT8, vex::gearSetting::ratio18_1);
+vex::motor frontRight = vex::motor(vex::PORT1, vex::gearSetting::ratio18_1, true);
+vex::motor backRight = vex::motor(vex::PORT7, vex::gearSetting::ratio18_1, true);
+//other motors
+vex::motor leftRoller = vex::motor(vex::PORT20, vex::gearSetting::ratio6_1);
+vex::motor rightRoller = vex::motor(vex::PORT19, vex::gearSetting::ratio36_1);
+vex::motor angler = vex::motor(vex::PORT5, vex::gearSetting::ratio18_1);
+vex::motor lift = vex::motor(vex::PORT6, vex::gearSetting::ratio18_1);
+//controller
+vex::controller Controller1 = vex::controller();
+//sensors
 
-int autoPos = 1;
-  int autoMax = 4;
+/*    VARIABLES   */
+  //auto selection
+  int autoPos = 1;
+  const int autoMax = 4;
 
-  // variables
-  int maxSpeed = 100;
+  //constants
+  const int maxSpeed = 100;
+  const float math_Pi = 3.1415926535897932384626433;
 
-    //autonomous variables
+  //autonomous variables
   bool redSide = true;
-  float math_Pi = 3.1415926535897932384626433;
+  
   bool autoRunning = false;
 
   //drive bools
@@ -48,7 +52,7 @@ int autoPos = 1;
   double driveFrac = 1;
 
   //lift vars
-  bool liftTrigger = false;
+  bool liftEnabled = false;
   int liftPos = 0;
 
   double rollerFrac = 1;
@@ -56,30 +60,29 @@ int autoPos = 1;
   //angler
   bool anglerOut = false;
 
-  //PID
+  /* PID + SLEW RATE */
   bool pidRunning = false;
   bool turnRunning;
   float pidReqValue = 0; 
   float tReq = 0;
-  //PID Speeds
-  int pidSpeed = 0;
-  int tSpeed = 0;
-  //drive constants
-  float  kp = 0.3;
-  //float  ki = 0.0;
-  float  kd = 0.3;
+    //speeds
+    int pidSpeed = 0;
+    int tSpeed = 0;
+    //drive constants
+    const float kp = 0.3;
+    //const float  ki = 0.0;
+    const float kd = 0.3;
+
   //turn constants
-  float tKp = 0.9;
-  float tKd = 3.5;
   bool pidSlew = false;
-
-
+    const float tKp = 0.9;
+    const float tKd = 3.5;
+  
 float leftAvg(){
     //avg the 2 values
     return ((frontLeft.rotation(vex::rotationUnits::deg) + 
             backLeft.rotation(vex::rotationUnits::deg)) / 2);
 }
-
 
 //return the avg value of left encoders
 float rightAvg(){
@@ -128,13 +131,13 @@ bool isDriving(float tar){
   float curr = (abs(lPos) + abs(rPos))/2;
   int thresh = 3;
   int target = abs(tar);
-
+  /*
   Brain.Screen.printAt(1, 10, "%d", target);
   Brain.Screen.printAt(1, 30, "%d", count);
   Brain.Screen.printAt(1, 70, "%0.4f", curr);
   Brain.Screen.printAt(1, 90, "%0.4f", last);
   Brain.Screen.printAt(1, 130, "%0.4f", abs(last - curr));
-
+  */
   if((abs(last - curr) < thresh) && ((target * 0.7) < curr))
     count++;
   else
@@ -142,7 +145,7 @@ bool isDriving(float tar){
 
   last = curr;
 
-  //not driving if we haven't moved
+  //not driving if haven't moved
   if(count > 4){
     return false;
     count = 0;
@@ -154,7 +157,7 @@ bool isDriving(float tar){
 
 //slew rate
 int accel_step = 4;
-int deccel_step = 256; // no decel slew
+int deccel_step = 256; //no decel slew (immediate)
 int lSpeed = 0;
 int rSpeed = 0;
 
@@ -340,7 +343,8 @@ int turnTask(){
             else if(tDrive < (-tSpeed))
                 tDrive = (-tSpeed);
 
-          /*  Brain.Screen.printAt(1, 10, "%d", tError);
+          /*  
+            Brain.Screen.printAt(1, 10, "%d", tError);
             Brain.Screen.printAt(1, 30, "%d", tLastError);
             Brain.Screen.printAt(1, 50, "%d", tDrive);
             Brain.Screen.printAt(1, 70, "%0.4f", tReq);
@@ -825,18 +829,61 @@ void driveLockDetect(){
             liftPos = 2 - liftPos;
        }
     }
+*/
+
+void liftButtonDetect(){
+  //increment and decrement buttons
+  if(Controller1.ButtonB.pressing()){
+           //wait until released
+           while(Controller1.ButtonB.pressing()){
+               vex::task::sleep(50);
+           }
+           //run func
+           if(liftPos <= 1){
+            liftPos++;
+            liftEnabled = true;
+           }
+       }
+       else if(Controller1.ButtonX.pressing()){
+        //wait until released
+           while(Controller1.ButtonX.pressing()){
+               vex::task::sleep(75);
+           }
+           //run func
+           if(liftPos >= 1){
+            liftPos--;
+            liftEnabled = true;
+           }
+       }
+}
+
+void liftMovement(){
+  if(liftEnabled){
+    if(liftPos == 0){
+      
+    }
+    else if(liftPos == 1){
+      
+    }
+    else if(liftPos == 2){
+      
+    }
+  }
+
+  liftEnabled = !liftEnabled;
+}
 
 int liftTask(){
   while(true){
     if(!autoRunning){
+      liftButtonDetect();
       liftMovement();
-      liftTriggerDetect();
     }
     vex::task::sleep(20);
   }
 return 0;
 }
-*/
+
 
 int driveTask(){
   while(true){
@@ -999,7 +1046,7 @@ void usercontrol(void) {
   vex::task display(displayTask);
 
   //initiate lift task
-    //vex::task liftTriggers(liftTask);
+  vex::task liftTriggers(liftTask);
   resetDrive();
 
   //stop auto tasks
