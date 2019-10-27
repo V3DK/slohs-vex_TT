@@ -498,13 +498,13 @@ void blueSmall(){
 
   startTurn(-13.5, 50);
   driveCoast();
-  leftRoller.rotateFor(-250,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
-  rightRoller.rotateFor(250,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  leftRoller.rotateFor(-100,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(100,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
 
   startPid(20, 50, true);
   leftRoller.stop(vex::brakeType::coast);
   rightRoller.stop(vex::brakeType::coast);
-  
+
   driveCoast();
   angler.rotateTo(1700,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, true);
   //startPid(-2, 30, true);
@@ -552,10 +552,10 @@ void redSmall(){
   leftRoller.stop(vex::brakeType::hold);
   rightRoller.stop(vex::brakeType::hold);
 
-  startTurn(13.5, 50);
+  startTurn(13.8, 50);
   driveCoast();
-  leftRoller.rotateFor(-250,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
-  rightRoller.rotateFor(250,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  leftRoller.rotateFor(-200,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(200,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
 
   startPid(20, 50, true);
   leftRoller.stop(vex::brakeType::coast);
@@ -572,33 +572,12 @@ void redSmall(){
 }
 
 
-
-
 void autonomous(void) {
   vex::task pidTasks(pidTask);
   vex::task turnTasks(turnTask);
   autoRunning = true;
   redSmall();
   //blueSmall();
-  /*switch(autoPos){
-    case 1:
-      redSmall();
-      Brain.Screen.printAt(1, 60, "Red Small");
-      break;
-    case 2:
-      redBig();
-      Brain.Screen.printAt(1, 60, "Red Big");
-      break;
-    case 3:
-      blueSmall();
-      Brain.Screen.printAt(1, 60, "Blue Small");
-      break;
-    case 4:
-      blueBig();
-      Brain.Screen.printAt(1, 60, "Blue Big");
-      break;
-  }
-  */
 
   //stop pid task - only needed for auto
   vex::task::stop(pidTask); 
@@ -708,7 +687,7 @@ void liftMovement(){
       anglerOut = true;
    	  angler.rotateTo(900,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
    	  lift.setTimeout(1000, vex::timeUnits::sec);
-      lift.rotateTo(900,vex::rotationUnits::deg,100,vex::velocityUnits::pct); 
+      lift.rotateTo(830,vex::rotationUnits::deg,100,vex::velocityUnits::pct); 
       lift.setTimeout(1000, vex::timeUnits::sec);
       lift.stop(vex::brakeType::hold);
     }
@@ -812,7 +791,7 @@ int driveTask(){
         }
       //}
         if(aPos > 300)
-        	rollerFrac = 0.25;
+        	rollerFrac = 0.5;
         else
         	rollerFrac = 1;
     }
