@@ -603,8 +603,8 @@ void driveLockDetect(){
       if(Controller1.ButtonUp.pressing()){
         straightMove = true;
         while(Controller1.ButtonUp.pressing()){
-          moveLeft(20);
-          moveRight(20);
+          moveLeft(45);
+          moveRight(45);
         }
       }
       else if(Controller1.ButtonDown.pressing()){
@@ -618,6 +618,8 @@ void driveLockDetect(){
     }
 
 int liftDeg = 0;
+
+bool rollersOn = false; 
 void liftButtonDetect(){
   //increment and decrement buttons
   if(Controller1.ButtonX.pressing()){
@@ -653,11 +655,14 @@ void liftButtonDetect(){
           lift.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
         }
         else {
-        	if(liftDeg > 100) {
+        	if((liftDeg > 100) || rollersOn) {
         		lift.stop(vex::brakeType::hold);
         	}
         	else{
-        		lift.stop(vex::brakeType::coast);
+            if(rollersOn)
+              lift.spin(vex::directionType::rev, (maxSpeed * 0.25), vex::velocityUnits::pct);
+        		else
+              lift.stop(vex::brakeType::coast);
         	}
         }  
 }
@@ -679,7 +684,7 @@ void liftMovement(){
    	  anglerOut = true;
    	  angler.rotateTo(900,vex::rotationUnits::deg,100,vex::velocityUnits::pct);
    	  lift.setTimeout(1000, vex::timeUnits::sec);
-      lift.rotateTo(650,vex::rotationUnits::deg,100,vex::velocityUnits::pct); 
+      lift.rotateTo(720,vex::rotationUnits::deg,100,vex::velocityUnits::pct); 
       lift.setTimeout(1000, vex::timeUnits::sec);
       lift.stop(vex::brakeType::hold);
     }
@@ -697,11 +702,15 @@ void liftMovement(){
   liftEnabled = false;
 }
 
+
+
+
 int liftTask(){
   while(true){
     if(!autoRunning){
       liftButtonDetect();
       liftMovement();
+    	//liftControl();
     }
     vex::task::sleep(20);
   }
@@ -768,29 +777,33 @@ int driveTask(){
 
 
     void rollerControl(void){
-      //if((!Controller1.ButtonR1.pressing()) && (!Controller1.ButtonR2.pressing())){
         if(Controller1.ButtonL2.pressing()){
+          rollersOn = true;
           leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
           rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
         }
         else if(Controller1.ButtonL1.pressing()){
+          rollersOn = true;
           leftRoller.spin(vex::directionType::rev, (maxSpeed * rollerFrac), vex::velocityUnits::pct);
           rightRoller.spin(vex::directionType::fwd, (maxSpeed * rollerFrac), vex::velocityUnits::pct);
         }
         else {
-        leftRoller.stop(vex::brakeType::hold);
-		rightRoller.stop(vex::brakeType::hold);
-			if(aPos > 900){
-				leftRoller.stop(vex::brakeType::coast);
-				rightRoller.stop(vex::brakeType::coast);
-			}
-			else if(aPos < 900){
-				leftRoller.stop(vex::brakeType::hold);
-			  	rightRoller.stop(vex::brakeType::hold);
+          rollersOn = false;
+				if(aPos > 900){
+					leftRoller.stop(vex::brakeType::coast);
+					rightRoller.stop(vex::brakeType::coast);
 				}
+				else if(aPos < 900){
+					leftRoller.stop(vex::brakeType::hold);
+			  		rightRoller.stop(vex::brakeType::hold);
+				}
+				else{
+					leftRoller.stop(vex::brakeType::hold);
+					rightRoller.stop(vex::brakeType::hold);
+				}
+
         }
-      //}
-        if(aPos > 300)
+        if(liftDeg > 800)
         	rollerFrac = 0.5;
         else
         	rollerFrac = 1;
@@ -821,7 +834,11 @@ int driveTask(){
             angler.stop(vex::brakeType::coast);
         }
       }
+
+
     }
+
+    
 /*
     void autoSelector(){
       if(upLimit.pressing()){
