@@ -35,51 +35,67 @@ timer autoTimer = timer();
 
 /*    VARIABLES    */
 
-  //auto selection
-  int autoPos = 1;
-  //const int autoMax = 4;
+	//auto selection
+	int autoPos = 1;
+	//const int autoMax = 4;
 
-  //mathematical constants
-  const int maxSpeed = 100;
-  const float math_Pi = 3.1415926535897932384626433;
+	//mathematical constants
+	const int maxSpeed = 100;
+	const float math_Pi = 3.1415926535897932384626433;
 
-  //autonomous variables
-  bool redSide = true;
-  bool autoRunning = false;
+	//autonomous variables
+	bool redSide = true;
+	bool autoRunning = false;
 
-  //drive booleans
-  bool driveLockOn = false;
-  bool straightMove = false;
-  double driveFrac = 1;
+	//drive booleans
+	bool driveLockOn = false;
+	bool straightMove = false;
+	double driveFrac = 1;
 
-  //lift variables (preset control)
-  bool liftEnabled = false;
-  int liftPos = 0;
-  
-  //roller speed control
-  double rollerFrac = 1;
+	//lift variables (preset control)
+	bool liftEnabled = false;
+	int liftPos = 0;
 
-  //angler rotation and states
-  bool anglerOut = false;
-  int aPos;
+	//roller speed control
+	double rollerFrac = 1;
+	bool blockRollers = false;
 
-  /* PID + SLEW RATE */
-  bool pidRunning = false;
-  bool turnRunning;
-  float pidReqValue = 0; 
-  float tReq = 0;
-    //speeds
-    int pidSpeed = 0;
-    int tSpeed = 0;
-    //drive constants
-    const float kp = 0.3;
-    //const float  ki = 0.0;
-    const float kd = 0.3;
+	//angler rotation and states
+	bool anglerOut = false;
+	int aPos;
 
-  //turn constants
-  bool pidSlew = false;
-    const float tKp = 0.9;
-    const float tKd = 3.5;
+	/* PID + SLEW RATE */
+	bool pidRunning = false;
+	bool turnRunning = false;
+	bool sRunning = false;
+
+	float pidReqValue = 0; 
+	float tReq = 0;
+	float sReq = 0;
+
+	//speeds
+	int pidSpeed = 0;
+	int tSpeed = 0;
+	int sSpeed = 0;
+
+	bool pidSlew = false;
+
+	//drive constants
+	const float kp = 0.3;
+	//const float  ki = 0.0;
+	const float kd = 0.3;
+
+	//turn constants
+	const float tKp = 0.9;
+	const float tKd = 3.5;
+
+	//single turn constants
+
+	//true - left
+	//false - right
+	bool leftSide = false;
+	const float sKp = 0.5;
+	const float sKd = 3.5;
   
 float leftAvg(){
     //avg the 2 values
@@ -120,9 +136,12 @@ void resetOthers(){
     angler.resetRotation();
 }
 
+/*---------------------------------------------------------------------------------------------------------------*/
+
 //isDriving
 int count = 0;
 float last = 0;
+
 //everything in absolute value
 bool isDriving(float tar){
   Brain.Screen.clearScreen();
@@ -131,7 +150,7 @@ bool isDriving(float tar){
   int rPos = rightAvg();
 
   //always positive
-  float curr = (abs(lPos) + abs(rPos))/2;
+  float curr = (abs(lPos) + abs(rPos)) / 2;
   int thresh = 3;
   int target = std::abs(tar);
   /*
@@ -157,6 +176,8 @@ bool isDriving(float tar){
   else
     return true;
 }
+
+/*---------------------------------------------------------------------------------------------------------------*/
 
 //slew rate
 int accel_step = 10;
@@ -200,12 +221,13 @@ void rightSlew(int rightTarget){
 
   moveRight(rSpeed);
 }
+/*---------------------------------------------------------------------------------------------------------------*/
+
 
 //stop the pid part from running and reset values passed
 //works for normal and turning PID
  void stopPid(){
     pidRunning = false;
-    //turnRunning = false;
     
     //redundant safeties
     pidReqValue = 0;
@@ -216,18 +238,28 @@ void rightSlew(int rightTarget){
     //tReq = 0;
     //tSpeed = 0;
  }
- int tDrive = 0;
 
  void stopTurn(){
     turnRunning = false;
 
     tReq = 0;
     tSpeed = 0;
-    tDrive = 0;
+    //tDrive = 0;
 
     moveLeft(0);
     moveRight(0);
  }
+
+ void stopSingleTurn(){
+    sRunning = false;
+
+    sReq = 0;
+    sSpeed = 0;
+    //tDrive = 0;
+    moveLeft(0);
+    moveRight(0);
+ }
+
 
  void startPid(float pReq, int pSpeed, bool pidS){ //pReq in inches
     resetDrive();
@@ -243,10 +275,10 @@ void rightSlew(int rightTarget){
  }
 
 //positive tReq = right turn!
- void startTurn(float tReqVal, int turSpeed){
+ void startTurn(float tReqVal, int turnSpeed){
     resetDrive();
     tReq = (tReqVal / (4 * math_Pi)) * 360;    
-    tSpeed = turSpeed;
+    tSpeed = turnSpeed;
     turnRunning = true;
     
     //wait until pidRunning is false
@@ -254,6 +286,24 @@ void rightSlew(int rightTarget){
         task::sleep(20);
     }
  }
+
+ void startSingleTurn(bool side, float sReqVal, int sideSpeed){
+ 	resetDrive();
+    sReq = (sReqVal / (4 * math_Pi)) * 360;    
+    sSpeed = sideSpeed;
+    leftSide = side;
+
+    sRunning = true;
+    
+    //wait until pidRunning is false
+    while(sRunning){
+        task::sleep(20);
+    }
+
+ }
+
+/*---------------------------------------------------------------------------------------------------------------*/
+
 
 int pidTask(){
     //normal
@@ -286,7 +336,7 @@ int pidTask(){
             else if(pidDrive < (-pidSpeed))
                 pidDrive = (-pidSpeed);
 
-            //stoppping state - if drive power super small, (less than 3) and error is equal to last error, robot is stopped
+            //stopping state - if drive power super small, (less than 3) and error is equal to last error, robot is stopped
             if(!isDriving(pidReqValue)){
                 stopPid();
             }    
@@ -322,6 +372,8 @@ int turnTask(){
     int    tError = 0;
     float  tLastError = 0;
     float  tDeriv = 0;
+    int    tDrive = 0;
+
 
     //clearEncoders
     resetDrive();
@@ -329,7 +381,6 @@ int turnTask(){
      while(true){
         //turning pid
         if(turnRunning){
-
             //guarentees correct sign - right turn is pos, left is neg
             tCurr = (leftAvg() - rightAvg()) / 2;
             //tCurr = leftAvg();
@@ -345,31 +396,15 @@ int turnTask(){
             else if(tDrive < (-tSpeed))
                 tDrive = (-tSpeed);
 
-          /*  
-            Brain.Screen.printAt(1, 10, "%d", tError);
-            Brain.Screen.printAt(1, 30, "%d", tLastError);
-            Brain.Screen.printAt(1, 50, "%d", tDrive);
-            Brain.Screen.printAt(1, 70, "%0.4f", tReq);
-          */
-
-           // Brain.Screen.printAt(1, 10, "First");
-
             //stoppping state - if drive power super small, (less than 3) and error is equal to last error, robot is stopped
             if(!isDriving(tReq)){
               tDrive = 0;
                 stopTurn();
             }        
-
-           // Brain.Screen.printAt(1, 120, "Third");
             //send to drive motors
             moveLeft(tDrive);
             moveRight(-tDrive);
-
-            //leftSlew(tDrive);
-            //rightSlew(-tDrive);
         }
-
-        //pid not running
         else {
             tError = 0;
             tLastError = 0;
@@ -382,6 +417,72 @@ int turnTask(){
         }
         return 0;
 }
+
+int singleTurnTask(){
+    //turning
+    float  sCurr = 0;
+    int    sError = 0;
+    float  sLastError = 0;
+    float  sDeriv = 0;
+    int    sDrive = 0;
+
+    //clearEncoders
+    resetDrive();
+
+     while(true){
+        //turning pid
+        if(sRunning){
+
+            //guarentees correct sign - right turn is pos, left is neg
+            if(leftSide)
+            	sCurr = leftAvg();
+            else
+            	sCurr = rightAvg();
+
+            sError = sReq - sCurr;
+
+            sDeriv = sError - sLastError;
+            sLastError = sError;
+
+            sDrive = (sKp * sError) + (sKd * sDeriv);
+            //limit drive - speed based on pidSpeed variable passed in
+            if(sDrive > sSpeed)
+                sDrive = sSpeed;
+            else if(sDrive < (-sSpeed))
+                sDrive = (-sSpeed);
+
+            //stoppping state - if drive power super small, (less than 3) and error is equal to last error, robot is stopped
+            if(!isDriving(sReq)){
+              sDrive = 0;
+                stopSingleTurn();
+            }        
+
+           // Brain.Screen.printAt(1, 120, "Third");
+            //send to drive motors
+
+            if(leftSide)
+            	moveLeft(sDrive);
+            else
+            	moveRight(-sDrive);
+        }
+
+        //pid not running
+        else {
+            sError = 0;
+            sLastError = 0;
+            sDeriv = 0;
+            sReq = 0;
+            sSpeed = 0;
+        }
+            //to not waste resources
+            task::sleep(25);
+        }
+        return 0;
+}
+
+
+/*---------------------------------------------------------------------------------------------------------------*/
+
 
 void pre_auton(void) {
   // Initializing Robot Configuration. DO NOT REMOVE!
@@ -439,7 +540,6 @@ void driveCoast(){
 float startTime, endTime;
 
 void blue8(){
-  
   startTime = autoTimer.system();
   autoTimer.clear();
   //clear screen
@@ -455,7 +555,7 @@ void blue8(){
   resetOthers();
 
   //start angler to clear for lift
-  angler.rotateTo(300,rotationUnits::deg,100,velocityUnits::pct, false);
+  angler.rotateTo(200,rotationUnits::deg,100,velocityUnits::pct, false);
 
   //lift up to flip out tray
   lift.rotateTo(500,rotationUnits::deg,100,velocityUnits::pct, true);
@@ -481,7 +581,7 @@ void blue8(){
   resetDrive();
 
   //turn before backing up to second set
-  startTurn(-4.5, 30);
+  startTurn(4.20, 20);
   driveCoast();
 
   //stop rollers
@@ -493,14 +593,14 @@ void blue8(){
   resetDrive();
 
   //drive back to second stack
-  startPid(-35, 80, false);
+  startPid(-32, 80, false);
   driveCoast();
 
   //reset drive encoders
   resetDrive();
 
   //turn to align to second stack
-  startTurn(4.5, 30);
+  startTurn(-4.75, 35);
   driveCoast();
 
   //start rollers
@@ -511,7 +611,7 @@ void blue8(){
   resetDrive();
 
   //drive through second stack
-  startPid(30, 40, true);
+  startPid(30, 30, true);
   driveCoast();
 
   //stop lift 'hold'
@@ -540,8 +640,8 @@ void blue8(){
   rightRoller.stop(brakeType::coast);
 
   //rotating angler
-  angler.rotateTo(800,rotationUnits::deg, 100, velocityUnits::pct, true);
-  angler.rotateTo(1250,rotationUnits::deg, 40, velocityUnits::pct, true);
+  angler.rotateTo(400,rotationUnits::deg, 100, velocityUnits::pct, true);
+  angler.rotateTo(790,rotationUnits::deg, 40, velocityUnits::pct, true);
 
   //reset drive encoders
   resetDrive();
@@ -553,15 +653,120 @@ void blue8(){
   Brain.Screen.printAt(1, 80, "%f", (endTime / 1000.0));
 }
 
+
+void blue5(){
+  startTime = autoTimer.system();
+  autoTimer.clear();
+  //clear screen
+  Brain.Screen.clearScreen();
+
+  //set holds for auto movement
+  angler.setStopping(brakeType::hold);
+  leftRoller.setStopping(brakeType::hold);
+  rightRoller.setStopping(brakeType::hold);
+  lift.setStopping(brakeType::hold);
+
+  //reset encoders
+  resetOthers();
+
+  //start angler to clear for lift
+  angler.rotateTo(200,rotationUnits::deg,100,velocityUnits::pct, false);
+
+  //lift up to flip out tray
+  lift.rotateTo(550, rotationUnits::deg,100,velocityUnits::pct, true);
+
+  //lift down
+  lift.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, true);
+
+  lift.spin(directionType::rev, (maxSpeed * 0.10), velocityUnits::pct);
+
+  //angler in
+  angler.rotateTo(0, rotationUnits::deg,100,velocityUnits::pct, true);
+
+  //start rollers
+  leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
+  rightRoller.spin(directionType::rev, (maxSpeed), velocityUnits::pct);
+
+  
+
+  //reset drive encoders
+  resetDrive();
+
+  //start driving
+  startPid(42, 30, true);
+  driveCoast();
+
+  lift.spin(directionType::rev, (maxSpeed * 0), velocityUnits::pct);
+
+  //reset drive encoders
+  resetDrive();
+
+  startPid(-19.5, 60, true);
+  driveCoast();
+
+  leftRoller.stop(vex::brakeType::hold);
+  rightRoller.stop(vex::brakeType::hold);
+
+  startTurn(-11.5, 30);
+  driveCoast();
+
+  leftRoller.rotateFor(-180,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(180,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+
+  startPid(18.5, 50, true);
+  leftRoller.stop(vex::brakeType::coast);
+  rightRoller.stop(vex::brakeType::coast);
+
+  driveCoast();
+
+  lift.setStopping(vex::brakeType::coast);
+  angler.rotateTo(500,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, true);
+  angler.rotateTo(800,vex::rotationUnits::deg, 40, vex::velocityUnits::pct, true);
+
+  //angler.rotateTo(800,vex::rotationUnits::deg, 40, vex::velocityUnits::pct, true);
+
+  leftRoller.spin(directionType::rev, (maxSpeed * 0.4), velocityUnits::pct);
+  rightRoller.spin(directionType::fwd, (maxSpeed * 0.4), velocityUnits::pct);
+
+  startPid(-10, 20, true);
+
+  angler.rotateTo(0,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, true);
+  lift.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, true);
+
+  //startPid(1.5, 30, true);
+  driveCoast();
+
+  leftRoller.spin(directionType::rev, (0), velocityUnits::pct);
+  rightRoller.spin(directionType::fwd, (0), velocityUnits::pct);
+
+  endTime = autoTimer.system() - startTime;
+  Brain.Screen.printAt(1, 80, "%f", (endTime / 1000.0));
+}
+
+void tuningPid(){
+	Brain.Screen.clearScreen();
+	resetDrive();
+
+	startSingleTurn(true, 5, 50);
+	driveCoast();
+}
+
 void autonomous(void) {
   task pidTasks(pidTask);
   task turnTasks(turnTask);
+  task singleTurnTasks(singleTurnTask);
   autoRunning = true;
 
-  blue8();
+
+  blue5();
+  //tuningPid();
+
+
   //stop pid task - only needed for auto
   task::stop(pidTask); 
   task::stop(turnTask); 
+  task::stop(singleTurnTask); 
+
   autoRunning = false;
   //wait 10 seconds - just in case (no repeat)
   task::sleep(10000);
@@ -655,7 +860,7 @@ void liftMovement(){
 
       lift.stop(brakeType::coast);
       liftTimeout(750);
-      lift.rotateTo(0,rotationUnits::deg, 87, velocityUnits::pct, true);
+      lift.rotateTo(0,rotationUnits::deg, 100, velocityUnits::pct, true);
       anglerTimeout(1000);
       angler.rotateTo(0,rotationUnits::deg,100,velocityUnits::pct, true);
       anglerOut = false;
@@ -664,6 +869,12 @@ void liftMovement(){
     else if(liftPos == 1){
 
       liftTimeout(500);
+
+      blockRollers = true;
+      leftRoller.rotateFor(-50, rotationUnits::deg, 50, velocityUnits::pct, false);
+  	  rightRoller.rotateFor(50, rotationUnits::deg, 50, velocityUnits::pct, false);
+  	  blockRollers = false;
+
       lift.rotateTo(200, rotationUnits::deg, 100, velocityUnits::pct, true); 
 
       anglerOut = true;
@@ -685,14 +896,15 @@ void liftMovement(){
 
       lift.rotateTo(570, rotationUnits::deg,100,velocityUnits::pct, true); 
       lift.stop(brakeType::hold);
+
+
+
     }
   }
 
   //turn off lift movement
   liftEnabled = false;
 }
-
-
 
 
 int liftTask(){
@@ -769,41 +981,43 @@ int driveTask(){
     }
 
     void rollerControl(void){
-        if(Controller1.ButtonL2.pressing()){
-          rollersOn = true;
-          leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
-          rightRoller.spin(directionType::rev, (maxSpeed), velocityUnits::pct);
-        }
-        else if(Controller1.ButtonL1.pressing()){
-          rollersOn = true;
-          leftRoller.spin(directionType::rev, (maxSpeed * rollerFrac), velocityUnits::pct);
-          rightRoller.spin(directionType::fwd, (maxSpeed * rollerFrac), velocityUnits::pct);
-        }
-        else {
-          rollersOn = false;
-        if(aPos > 300){
-          leftRoller.stop(brakeType::coast);
-          rightRoller.stop(brakeType::coast);
-        }
-        else if(aPos < 300){
-          leftRoller.stop(brakeType::hold);
-            rightRoller.stop(brakeType::hold);
-        }
-        else {
-          leftRoller.stop(brakeType::hold);
-          rightRoller.stop(brakeType::hold);
-        }
+    	if(!blockRollers){
 
-        }
-        if(aPos > 550)
-          rollerFrac = 0.1;
+	        if(Controller1.ButtonL2.pressing()){
+	          rollersOn = true;
+	          leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
+	          rightRoller.spin(directionType::rev, (maxSpeed), velocityUnits::pct);
+	        }
+	        else if(Controller1.ButtonL1.pressing()){
+	          rollersOn = true;
+	          leftRoller.spin(directionType::rev, (maxSpeed * rollerFrac), velocityUnits::pct);
+	          rightRoller.spin(directionType::fwd, (maxSpeed * rollerFrac), velocityUnits::pct);
+	        }
+	        else {
+	          rollersOn = false;
+	        if(aPos > 300){
+	          leftRoller.stop(brakeType::coast);
+	          rightRoller.stop(brakeType::coast);
+	        }
+	        else if(aPos < 300){
+	          leftRoller.stop(brakeType::hold);
+	            rightRoller.stop(brakeType::hold);
+	        }
+	        else {
+	          leftRoller.stop(brakeType::hold);
+	          rightRoller.stop(brakeType::hold);
+	        }
+	        }
+	    }
+
+        if(aPos > 250)
+          rollerFrac = 0.25;
         else
           rollerFrac = 1;
     }
-
     
     double anglerFrac;
-    const int aLimit = 450;
+    const int aLimit = 400;
     void anglerControl(){ 
       aPos = angler.rotation(rotationUnits::deg);
 
@@ -814,14 +1028,14 @@ int driveTask(){
       
 
       if((!anglerOut)){
-        if(Controller1.ButtonR1.pressing() && (aPos < 780)){
+        if(Controller1.ButtonR1.pressing() && (aPos < 820)){
           angler.spin(directionType::fwd, (maxSpeed * anglerFrac), velocityUnits::pct);
         }
         else if(Controller1.ButtonR2.pressing() && (aPos > 0)){
           angler.spin(directionType::rev, (maxSpeed), velocityUnits::pct);
         }
         else {
-          if(aPos > (450))
+          if(aPos > (75))
             angler.stop(brakeType::hold);
           else
             angler.stop(brakeType::coast);
@@ -856,6 +1070,7 @@ void usercontrol(void) {
   //stop auto tasks
   task::stop(pidTask); 
   task::stop(turnTask);
+  task::stop(singleTurnTask);
 
   while (true) {
     allRemoteFunc();
