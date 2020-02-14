@@ -58,7 +58,6 @@ timer autoTimer = timer();
 
 	//roller speed control
 	double rollerFrac = 1;
-	bool blockRollers = false;
 
 	//angler rotation and states
 	bool anglerOut = false;
@@ -94,8 +93,8 @@ timer autoTimer = timer();
 	//true - left
 	//false - right
 	bool leftSide = false;
-	const float sKp = 0.5;
-	const float sKd = 3.5;
+	const float sKp = 0.3;
+	const float sKd = 0.3;
   
 float leftAvg(){
     //avg the 2 values
@@ -540,7 +539,7 @@ void driveCoast(){
 float startTime, endTime;
 
 void blue8(){
-  startTime = autoTimer.system();
+	  startTime = autoTimer.system();
   autoTimer.clear();
   //clear screen
   Brain.Screen.clearScreen();
@@ -558,13 +557,15 @@ void blue8(){
   angler.rotateTo(200,rotationUnits::deg,100,velocityUnits::pct, false);
 
   //lift up to flip out tray
-  lift.rotateTo(500,rotationUnits::deg,100,velocityUnits::pct, true);
+  lift.rotateTo(550, rotationUnits::deg,100,velocityUnits::pct, true);
 
   //lift down
-  lift.rotateTo(0,rotationUnits::deg,100,velocityUnits::pct, true);
+  lift.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, true);
+
+  lift.spin(directionType::rev, (maxSpeed * 0.10), velocityUnits::pct);
 
   //angler in
-  angler.rotateTo(0,rotationUnits::deg,100,velocityUnits::pct, false);
+  angler.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, false);
 
   //start rollers
   leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
@@ -574,87 +575,103 @@ void blue8(){
   resetDrive();
 
   //start driving
-  startPid(40, 40, true);
+  startPid(35, 40, false);
   driveCoast();
 
-  //reset drive encoders
-  resetDrive();
-
-  //turn before backing up to second set
-  startTurn(4.20, 20);
+  startTurn(3.9, 20);
   driveCoast();
 
   //stop rollers
-  leftRoller.stop(brakeType::hold);
-  rightRoller.stop(brakeType::hold);
-
-
-  //reset drive encoders
-  resetDrive();
+  leftRoller.stop(vex::brakeType::hold);
+  rightRoller.stop(vex::brakeType::hold);
 
   //drive back to second stack
-  startPid(-32, 80, false);
+  //startPid(-37.5, 100, false);
+  startPid(-34.5, 80, false);
   driveCoast();
 
-  //reset drive encoders
-  resetDrive();
-
   //turn to align to second stack
-  startTurn(-4.75, 35);
+  startTurn(-4.2, 25);
+  //startTurn(-4.75, 20);
   driveCoast();
 
   //start rollers
-  leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
-  rightRoller.spin(directionType::rev, (maxSpeed), velocityUnits::pct);
+  leftRoller.spin(vex::directionType::fwd, (maxSpeed), vex::velocityUnits::pct);
+  rightRoller.spin(vex::directionType::rev, (maxSpeed), vex::velocityUnits::pct);
 
-	//reset drive encoders
-  resetDrive();
-
-  //drive through second stack
-  startPid(30, 30, true);
+  driveCoast();
+  startPid(29, 33, false);
+  //slow down drive to intake properly
+  //startPid(29, 25, false);
   driveCoast();
 
+  //disable lift 
+  lift.setStopping(vex::brakeType::coast);
+
   //stop lift 'hold'
-  lift.stop(brakeType::coast);
+  lift.stop(vex::brakeType::coast);
 
-  //reset drive encoders
-  resetDrive();
+  //start angling ahead of time
+  //angler.rotateTo(500, vex::rotationUnits::deg, 100, vex::velocityUnits::pct, false);
 
-  //turn to face scoring zone from afar
-  startTurn(-14, 50);
+  //drive back to scoring zone
+  startPid(-18, 100, false);
+  //driveMoveFor(-17, 100);
   driveCoast();
 
   //stop rollers
-  leftRoller.stop(brakeType::hold);
-  rightRoller.stop(brakeType::hold);
+  leftRoller.stop(vex::brakeType::hold);
+  rightRoller.stop(vex::brakeType::hold);
+  lift.stop(vex::brakeType::hold);
+  //wait(250, msec);
+  //turn to face scoring zone
 
-  //reset drive encoders
   resetDrive();
-
-  //drive to zone
-  startPid(45, 90, true);
+  startTurn(-11.5, 50);
   driveCoast();
 
-  //set rollers to coast to get out of the way
-  leftRoller.stop(brakeType::coast);
-  rightRoller.stop(brakeType::coast);
+ leftRoller.rotateFor(-215, vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(215, vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
 
-  //rotating angler
-  angler.rotateTo(400,rotationUnits::deg, 100, velocityUnits::pct, true);
-  angler.rotateTo(790,rotationUnits::deg, 40, velocityUnits::pct, true);
+  startPid(13, 100, false);
 
-  //reset drive encoders
-  resetDrive();
-
-  startPid(-10, 100, false);
   driveCoast();
+
+  leftRoller.stop(vex::brakeType::coast);
+  rightRoller.stop(vex::brakeType::coast);
+
+  lift.setStopping(vex::brakeType::coast);
+  angler.rotateTo(500,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, true);
+  angler.rotateTo(650,vex::rotationUnits::deg, 60, vex::velocityUnits::pct, true);
+  angler.rotateTo(820,vex::rotationUnits::deg, 40, vex::velocityUnits::pct, true);
+
+  //angler.rotateTo(800,vex::rotationUnits::deg, 40, vex::velocityUnits::pct, true);
+
+  leftRoller.spin(directionType::rev, (maxSpeed * 0.7), velocityUnits::pct);
+  rightRoller.spin(directionType::fwd, (maxSpeed * 0.7), velocityUnits::pct);
+
+  driveCoast();
+
+  leftRoller.spin(directionType::rev, (0), velocityUnits::pct);
+  rightRoller.spin(directionType::fwd, (0), velocityUnits::pct);
+
+
+  startPid(-5, 100, false);
+
+//  angler.rotateTo(0,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, true);
+//  lift.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, true);
+
+  //startPid(1.5, 30, true);
+  
 
   endTime = autoTimer.system() - startTime;
   Brain.Screen.printAt(1, 80, "%f", (endTime / 1000.0));
 }
 
+//blue = true
+//red = false
 
-void blue5(){
+void cube5(bool autoSide){
   startTime = autoTimer.system();
   autoTimer.clear();
   //clear screen
@@ -707,20 +724,26 @@ void blue5(){
   leftRoller.stop(vex::brakeType::hold);
   rightRoller.stop(vex::brakeType::hold);
 
-  startTurn(-11.5, 30);
+  if(autoSide)
+  	startTurn(-11.5, 30);
+  else
+  	startTurn(12, 30);
+
   driveCoast();
 
-  leftRoller.rotateFor(-180,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
-  rightRoller.rotateFor(180,vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  leftRoller.rotateFor(-215, vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
+  rightRoller.rotateFor(215, vex::rotationUnits::deg, 50, vex::velocityUnits::pct, false);
 
   startPid(18.5, 50, true);
+
+  driveCoast();
+
   leftRoller.stop(vex::brakeType::coast);
   rightRoller.stop(vex::brakeType::coast);
 
-  driveCoast();
-
   lift.setStopping(vex::brakeType::coast);
   angler.rotateTo(500,vex::rotationUnits::deg, 100, vex::velocityUnits::pct, true);
+
   angler.rotateTo(800,vex::rotationUnits::deg, 40, vex::velocityUnits::pct, true);
 
   //angler.rotateTo(800,vex::rotationUnits::deg, 40, vex::velocityUnits::pct, true);
@@ -747,7 +770,7 @@ void tuningPid(){
 	Brain.Screen.clearScreen();
 	resetDrive();
 
-	startSingleTurn(true, 5, 50);
+	startSingleTurn(true, 50, 70);
 	driveCoast();
 }
 
@@ -758,7 +781,7 @@ void autonomous(void) {
   autoRunning = true;
 
 
-  blue5();
+  cube5(true);
   //tuningPid();
 
 
@@ -858,30 +881,44 @@ void liftMovement(){
 
     if(liftPos == 0){      
 
-      lift.stop(brakeType::coast);
-      liftTimeout(750);
-      lift.rotateTo(0,rotationUnits::deg, 100, velocityUnits::pct, true);
       anglerTimeout(1000);
-      angler.rotateTo(0,rotationUnits::deg,100,velocityUnits::pct, true);
+      angler.rotateTo(275, rotationUnits::deg, 100, velocityUnits::pct, true);
+
+      anglerTimeout(1000);
+      angler.rotateTo(0, rotationUnits::deg, 75, velocityUnits::pct, false);
       anglerOut = false;
 
+      lift.stop(brakeType::coast);
+      liftTimeout(1000);
+      lift.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, true);
     }
     else if(liftPos == 1){
+      leftRoller.rotateFor(-145, rotationUnits::deg, 65, velocityUnits::pct, false);
+  	  rightRoller.rotateFor(145, rotationUnits::deg, 65, velocityUnits::pct, false);
 
-      liftTimeout(500);
+      liftTimeout(1000);
+      lift.rotateTo(175, rotationUnits::deg, 100, velocityUnits::pct, true); 
+      lift.stop(brakeType::hold);
 
-      blockRollers = true;
-      leftRoller.rotateFor(-50, rotationUnits::deg, 50, velocityUnits::pct, false);
-  	  rightRoller.rotateFor(50, rotationUnits::deg, 50, velocityUnits::pct, false);
-  	  blockRollers = false;
-
-      lift.rotateTo(200, rotationUnits::deg, 100, velocityUnits::pct, true); 
 
       anglerOut = true;
-      if(angler.rotation(rotationUnits::deg) < 700){
+     // if(angler.rotation(rotationUnits::deg) < 700){
       	anglerTimeout(1000);
-      	angler.rotateTo(200,rotationUnits::deg,100,velocityUnits::pct, true);
-      }
+      	angler.rotateTo(200, rotationUnits::deg, 100, velocityUnits::pct, true);
+     // }
+
+   //   leftRoller.rotateFor(-120, rotationUnits::deg, 50, velocityUnits::pct, false);
+  	//  rightRoller.rotateFor(120, rotationUnits::deg, 50, velocityUnits::pct, false);
+
+
+      liftTimeout(1000);
+
+      lift.rotateTo(615, rotationUnits::deg, 100, velocityUnits::pct, true); 
+      lift.stop(brakeType::hold);
+
+
+
+      
 
 /*
       leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
@@ -892,10 +929,6 @@ void liftMovement(){
 
 */
       
-      liftTimeout(1000);
-
-      lift.rotateTo(570, rotationUnits::deg,100,velocityUnits::pct, true); 
-      lift.stop(brakeType::hold);
 
 
 
@@ -981,7 +1014,7 @@ int driveTask(){
     }
 
     void rollerControl(void){
-    	if(!blockRollers){
+    	if(!liftEnabled){
 
 	        if(Controller1.ButtonL2.pressing()){
 	          rollersOn = true;
@@ -1027,8 +1060,9 @@ int driveTask(){
         anglerFrac = 1;
       
 
+    if(!liftEnabled){
       if((!anglerOut)){
-        if(Controller1.ButtonR1.pressing() && (aPos < 820)){
+        if(Controller1.ButtonR1.pressing() && (aPos < 870)){
           angler.spin(directionType::fwd, (maxSpeed * anglerFrac), velocityUnits::pct);
         }
         else if(Controller1.ButtonR2.pressing() && (aPos > 0)){
@@ -1041,6 +1075,8 @@ int driveTask(){
             angler.stop(brakeType::coast);
         }
       }
+
+  }
 
 
     }
