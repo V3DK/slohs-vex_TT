@@ -687,18 +687,18 @@ void cube5(bool autoSide){
   resetOthers();
 
   //start angler to clear for lift
-  angler.rotateTo(200,rotationUnits::deg,100,velocityUnits::pct, false);
+  angler.rotateTo(200, rotationUnits::deg,100,velocityUnits::pct, false);
 
   //lift up to flip out tray
   lift.rotateTo(550, rotationUnits::deg,100,velocityUnits::pct, true);
 
+  
+
+  angler.rotateTo(0,rotationUnits::deg,100,velocityUnits::pct, false);
+
   //lift down
   lift.rotateTo(0, rotationUnits::deg, 100, velocityUnits::pct, true);
-
   lift.spin(directionType::rev, (maxSpeed * 0.10), velocityUnits::pct);
-
-  //angler in
-  angler.rotateTo(0, rotationUnits::deg,100,velocityUnits::pct, true);
 
   //start rollers
   leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
@@ -904,7 +904,7 @@ void liftMovement(){
       anglerOut = true;
      // if(angler.rotation(rotationUnits::deg) < 700){
       	anglerTimeout(1000);
-      	angler.rotateTo(200, rotationUnits::deg, 100, velocityUnits::pct, true);
+      	angler.rotateTo(200, rotationUnits::deg, 100, velocityUnits::pct, false);
      // }
 
    //   leftRoller.rotateFor(-120, rotationUnits::deg, 50, velocityUnits::pct, false);
