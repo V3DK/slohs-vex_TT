@@ -1,22 +1,15 @@
 /*----------------------------------------------------------------------------*/
-/*                                                                            */
-/*    Module:       main.cpp                                                  */
-/*    Author:       VEX                                                       */
-/*    Created:      Thu Sep 26 2019                                           */
-/*    Description:  Competition Template                                      */
-/*                                                                            */
 /*----------------------------------------------------------------------------*/
-
-// ---- START VEXCODE CONFIGURED DEVICES ----
-// ---- END VEXCODE CONFIGURED DEVICES ----
-
 #include "vex.h"
 #include <cmath>
-
 using namespace vex;
-
-// A global instance of competition
 competition Competition;
+
+/*  broken ports
+PORT 5 - works, but randomly spins
+PORT 4 - dead
+PORT 3 - dead
+*/
 
 // VEXcode device constructors
 motor frontLeft = motor(PORT11, gearSetting::ratio18_1); 
@@ -24,9 +17,8 @@ motor backLeft = motor(PORT7, gearSetting::ratio18_1);
 motor frontRight = motor(PORT17, gearSetting::ratio18_1, true);
 motor backRight = motor(PORT6, gearSetting::ratio18_1, true);
 
-//port 4, 5 broken
 motor leftRoller = motor(PORT1, gearSetting::ratio18_1);
-motor rightRoller = motor(PORT3, gearSetting::ratio18_1);
+motor rightRoller = motor(PORT2, gearSetting::ratio18_1);
 motor angler = motor(PORT19, gearSetting::ratio36_1, true);
 motor lift = motor(PORT18, gearSetting::ratio36_1, false);
 
