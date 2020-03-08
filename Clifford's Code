@@ -591,14 +591,13 @@ void blue8(){
   rightRoller.spin(directionType::rev, (0), velocityUnits::pct);
 
   //turn towards scoring zone
-  startTurn(-13.1, 40, true, true);
+  startTurn(-12.7, 40, true, true);
+
+  leftRoller.stop(brakeType::brake);
+  rightRoller.stop(brakeType::brake);
   
   //drive into zone
   startPid(15.5, 40, true, true);
-
-  leftRoller.stop(brakeType::coast);
-  rightRoller.stop(brakeType::coast);
-
   driveLock(true);
 
   aPos = angler.rotation(rotationUnits::deg);
@@ -667,7 +666,7 @@ void red8(){
   startPid(-32.5, 100, true, true);
 
   //second little turn
-  startTurn(4.2, 100, false, true); 
+  startTurn(4.15, 100, false, true); 
 
   //turn on roller to start intaking
   leftRoller.spin(directionType::fwd, (maxSpeed), velocityUnits::pct);
@@ -705,13 +704,13 @@ void red8(){
   rightRoller.spin(directionType::rev, (0), velocityUnits::pct);
 
   //turn towards scoring zone
-  startTurn(12.7, 40, true, true);
-  
-  //drive into zone
-  startPid(15.5, 40, true, true);
+  startTurn(12.5, 40, true, true);
 
   leftRoller.stop(brakeType::coast);
   rightRoller.stop(brakeType::coast);
+  
+  //drive into zone
+  startPid(15.5, 40, true, true);
 
   driveLock(true);
 
@@ -786,7 +785,7 @@ void red5(){
   finishPidDrive();
 
   //turn towards scoring zone
-  startTurn(12.4, 30, true, true);
+  startTurn(13.1, 30, true, true);
   
   //drive into zone
   startPid(16.5, 60, true, true);
@@ -870,7 +869,7 @@ void blue5(){
   finishPidDrive();
 
   //turn towards scoring zone
-  startTurn(-13.5, 30, true, true);
+  startTurn(-12.7, 30, true, true);
   
   //drive into zone
   startPid(18, 30, true, true);
@@ -985,7 +984,7 @@ void bigBlue5(){
   rightRoller.stop(brakeType::coast);
 
   //turn to scoring zone
-  startTurn(-14.1, 40, true, true); 
+  startTurn(-13, 40, true, true); 
   
   //drive into zone
   startPid(9, 80, true, true);
@@ -1040,10 +1039,10 @@ void bigRed5(){
   startPid(10, 60, true, true);
 
   //little turn to tower cube
-  startTurn(1.65, 40, true, true); 
+  startTurn(1.55, 40, true, true); 
 
   //drive to second cube
-  startPid(37, 80, true, true);
+  startPid(36, 80, true, true);
 
   task::sleep(200);
 
@@ -1083,7 +1082,7 @@ void bigRed5(){
   rightRoller.stop(brakeType::coast);
 
   //turn to scoring zone
-  startTurn(14.1, 40, true, true); 
+  startTurn(13.65, 40, true, true); 
   
   //drive into zone
   startPid(9, 80, true, true);
@@ -1139,6 +1138,7 @@ void autonomous(void) {
 
   resetDrive();
   resetOthers();
+  
 if(autoPos == 1)
   	red8();
 else if(autoPos == 2)
@@ -1180,8 +1180,8 @@ void driveLockDetect(){
         while(Controller1.ButtonUp.pressing()){
           //moveLeft(40);
           //moveRight(40);
-          leftSlew(70);
-          rightSlew(70);
+          leftSlew(40);
+          rightSlew(40);
         }
       }
       else if(Controller1.ButtonDown.pressing()){
